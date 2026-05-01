@@ -1,9 +1,17 @@
 {
   "images" : [
     {
-      "idiom" : "universal",
       "filename" : "menubar-icon.pdf",
+      "idiom" : "universal",
       "scale" : "1x"
+    },
+    {
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "idiom" : "universal",
+      "scale" : "3x"
     }
   ],
   "info" : {
@@ -11,7 +19,7 @@
     "version" : 1
   },
   "properties" : {
-    "renders-as" : "template",
-    "preserves-vector-representation" : true
+    "preserves-vector-representation" : true,
+    "renders-as" : "template"
   }
 }
