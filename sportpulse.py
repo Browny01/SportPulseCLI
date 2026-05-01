@@ -2,7 +2,7 @@
 """
 SportPulse — Live Sports CLI Dashboard
 =======================================
-Real-time NBA scores and player stats, right in your terminal.
+Real-time NBA, NHL, and AFL scores and player stats, right in your terminal.
 
 Usage:
     python sportpulse.py
@@ -12,6 +12,7 @@ Controls:
     ↵  Enter   Select / Open
     q  ESC     Back / Quit
     r          Force refresh
+    TAB        Cycle team filter (game detail)
 """
 
 import curses
@@ -20,7 +21,7 @@ import threading
 import requests
 import sys
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -28,17 +29,25 @@ from typing import Dict, List, Optional, Tuple
 
 REFRESH_INTERVAL = 30  # seconds between auto-refreshes
 
-ESPN_SCOREBOARD = (
-    "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
-)
-ESPN_SUMMARY = (
-    "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary"
-)
+SPORT_URLS: Dict[str, Dict[str, str]] = {
+    "nba": {
+        "scoreboard": "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
+        "summary":    "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary",
+    },
+    "nhl": {
+        "scoreboard": "http://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
+        "summary":    "http://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary",
+    },
+    "afl": {
+        "scoreboard": "http://site.api.espn.com/apis/site/v2/sports/australian-football/afl/scoreboard",
+        "summary":    "http://site.api.espn.com/apis/site/v2/sports/australian-football/afl/summary",
+    },
+}
 
 SPORTS = [
     {"id": "nba", "label": "NBA",  "available": True},
-    {"id": "nhl", "label": "NHL",  "available": False},
-    {"id": "afl", "label": "AFL",  "available": False},
+    {"id": "nhl", "label": "NHL",  "available": True},
+    {"id": "afl", "label": "AFL",  "available": True},
 ]
 
 LOGO = [
@@ -52,8 +61,11 @@ LOGO = [
 
 TAGLINE = "Real-time Sports Stats  ·  Powered by ESPN"
 
-# Player stats table column definitions: (header, width, alignment)
-TABLE_COLS: List[Tuple[str, int, str]] = [
+# ─────────────────────────────────────────────────────────────────────────────
+# SPORT-SPECIFIC TABLE COLUMNS  (header, width, alignment)
+# ─────────────────────────────────────────────────────────────────────────────
+
+NBA_TABLE_COLS: List[Tuple[str, int, str]] = [
     ("RK",      3,  "right"),
     ("",        1,  "left"),    # rank-change arrow
     ("PLAYER",  22, "left"),
@@ -70,6 +82,51 @@ TABLE_COLS: List[Tuple[str, int, str]] = [
     ("FT",      6,  "center"),
     ("+/-",     4,  "right"),
 ]
+
+NHL_TABLE_COLS: List[Tuple[str, int, str]] = [
+    ("RK",      3,  "right"),
+    ("",        1,  "left"),
+    ("PLAYER",  22, "left"),
+    ("TEAM",    4,  "left"),
+    ("POS",     3,  "center"),
+    ("TOI",     5,  "right"),
+    ("G",       3,  "right"),
+    ("A",       3,  "right"),
+    ("PTS",     3,  "right"),
+    ("+/-",     4,  "right"),
+    ("SOG",     4,  "right"),
+    ("BS",      4,  "right"),
+    ("HITS",    4,  "right"),
+    ("PIM",     4,  "right"),
+    ("FO%",     5,  "right"),
+]
+
+AFL_TABLE_COLS: List[Tuple[str, int, str]] = [
+    ("RK",      3,  "right"),
+    ("",        1,  "left"),
+    ("PLAYER",  20, "left"),
+    ("TEAM",    4,  "left"),
+    ("POS",     3,  "center"),
+    ("FPTS",    4,  "right"),
+    ("D",       4,  "right"),
+    ("K",       3,  "right"),
+    ("HB",      3,  "right"),
+    ("M",       3,  "right"),
+    ("T",       3,  "right"),
+    ("G",       3,  "right"),
+    ("B",       3,  "right"),
+    ("HO",      3,  "right"),
+    ("I50",     4,  "right"),
+    ("R50",     4,  "right"),
+    ("FF",      3,  "right"),
+    ("FA",      3,  "right"),
+]
+
+SPORT_TABLE_COLS: Dict[str, List[Tuple[str, int, str]]] = {
+    "nba": NBA_TABLE_COLS,
+    "nhl": NHL_TABLE_COLS,
+    "afl": AFL_TABLE_COLS,
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COLOR PAIRS
@@ -115,7 +172,7 @@ def cp(name: str, bold: bool = False, dim: bool = False) -> int:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ESPN DATA LAYER
+# HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _int(s) -> int:
@@ -125,32 +182,73 @@ def _int(s) -> int:
         return 0
 
 
-def _period_str(period: int) -> str:
+def _float(s) -> float:
+    try:
+        return float(str(s).strip())
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def _period_str_nba(period: int) -> str:
     if period == 0:    return ""
     if period <= 4:    return f"Q{period}"
     if period == 5:    return "OT"
     return f"OT{period - 4}"
 
 
-def fetch_scoreboard() -> Optional[Dict]:
+def _period_str_nhl(period: int) -> str:
+    if period == 0:    return ""
+    if period <= 3:    return f"P{period}"
+    if period == 4:    return "OT"
+    return "SO"
+
+
+def _period_str_afl(period: int) -> str:
+    if period == 0:    return ""
+    if period <= 4:    return f"Q{period}"
+    return f"OT"
+
+
+_PERIOD_FN: Dict[str, Callable[[int], str]] = {
+    "nba": _period_str_nba,
+    "nhl": _period_str_nhl,
+    "afl": _period_str_afl,
+}
+
+
+def _afl_fpts(k: int, hb: int, m: int, t: int, g: int, b: int,
+              ho: int, ff: int, fa: int, i50: int, r50: int) -> int:
+    """AFL Fantasy points formula (standard AFL Fantasy/Dream Team scoring)."""
+    return (k * 3 + hb * 2 + m * 3 + t * 4 + g * 8 + b * 1
+            + ho * 1 + ff * 1 + fa * -1 + i50 * 1 + r50 * 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ESPN DATA LAYER
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fetch_scoreboard(sport: str) -> Optional[Dict]:
     try:
-        r = requests.get(ESPN_SCOREBOARD, timeout=8)
+        url = SPORT_URLS[sport]["scoreboard"]
+        r = requests.get(url, timeout=8)
         r.raise_for_status()
         return r.json()
     except Exception:
         return None
 
 
-def fetch_game_detail(event_id: str) -> Optional[Dict]:
+def fetch_game_detail(event_id: str, sport: str) -> Optional[Dict]:
     try:
-        r = requests.get(ESPN_SUMMARY, params={"event": event_id}, timeout=8)
+        url = SPORT_URLS[sport]["summary"]
+        r = requests.get(url, params={"event": event_id}, timeout=8)
         r.raise_for_status()
         return r.json()
     except Exception:
         return None
 
 
-def parse_games(data: Dict) -> List[Dict]:
+def parse_games(data: Dict, sport: str = "nba") -> List[Dict]:
+    period_fn = _PERIOD_FN.get(sport, _period_str_nba)
     games: List[Dict] = []
     for event in (data or {}).get("events", []):
         comp  = (event.get("competitions") or [{}])[0]
@@ -168,16 +266,25 @@ def parse_games(data: Dict) -> List[Dict]:
         home_t = home.get("team", {})
         away_t = away.get("team", {})
 
+        # For AFL: build goals.behinds.total string from linescores if available
+        h_score_str = home.get("score", "0")
+        a_score_str = away.get("score", "0")
+        if sport == "afl":
+            h_score_str = _afl_score_from_linescores(
+                home.get("linescores", []), h_score_str)
+            a_score_str = _afl_score_from_linescores(
+                away.get("linescores", []), a_score_str)
+
         games.append({
             "id":          event.get("id", ""),
             "status":      g_status,
             "home_name":   home_t.get("displayName", "Home"),
             "home_abbrev": home_t.get("abbreviation", "HOM"),
-            "home_score":  home.get("score", "0"),
+            "home_score":  h_score_str,
             "away_name":   away_t.get("displayName", "Away"),
             "away_abbrev": away_t.get("abbreviation", "AWY"),
-            "away_score":  away.get("score", "0"),
-            "period":      _period_str(stat.get("period", 0)),
+            "away_score":  a_score_str,
+            "period":      period_fn(stat.get("period", 0)),
             "clock":       stat.get("displayClock", ""),
             "detail":      stype.get("shortDetail", stype.get("detail", "")),
             "date":        event.get("date", ""),
@@ -185,10 +292,21 @@ def parse_games(data: Dict) -> List[Dict]:
     return games
 
 
-def parse_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
-    if not data:
-        return {}, []
+def _afl_score_from_linescores(linescores: list, fallback: str) -> str:
+    """Return 'G.B.Total' string from linescores, or fallback total."""
+    if not linescores:
+        return fallback
+    last = linescores[-1]
+    goals   = last.get("cumulativeGoalsDisplayValue", "")
+    behinds = last.get("cumulativeBehindsDisplayValue", "")
+    total   = fallback
+    if goals and behinds:
+        return f"{goals}.{behinds}.{total}"
+    return fallback
 
+
+def _parse_header_scores(data: Dict, sport: str) -> Dict:
+    """Extract the game header from ESPN summary data."""
     hcomp  = (data.get("header", {}).get("competitions") or [{}])[0]
     hstat  = hcomp.get("status", {})
     htype  = hstat.get("type", {})
@@ -196,59 +314,69 @@ def parse_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
     home   = next((c for c in hcomps if c.get("homeAway") == "home"), {})
     away   = next((c for c in hcomps if c.get("homeAway") == "away"), {})
 
-    game_header = {
-        "home_name":   home.get("team", {}).get("displayName", "Home"),
-        "home_abbrev": home.get("team", {}).get("abbreviation", "HOM"),
-        "home_score":  home.get("score", "0"),
-        "away_name":   away.get("team", {}).get("displayName", "Away"),
-        "away_abbrev": away.get("team", {}).get("abbreviation", "AWY"),
-        "away_score":  away.get("score", "0"),
-        "period":      _period_str(hstat.get("period", 0)),
-        "clock":       hstat.get("displayClock", ""),
-        "detail":      htype.get("shortDetail", htype.get("detail", "")),
-        "state":       htype.get("state", "pre"),
+    period_fn = _PERIOD_FN.get(sport, _period_str_nba)
+
+    # Base scores
+    home_score = home.get("score", "0")
+    away_score = away.get("score", "0")
+
+    # AFL: enhance with goals.behinds.total from linescores
+    home_goals = home_behinds = away_goals = away_behinds = None
+    if sport == "afl":
+        h_ls = home.get("linescores", [])
+        a_ls = away.get("linescores", [])
+        if h_ls:
+            last = h_ls[-1]
+            home_goals   = last.get("cumulativeGoalsDisplayValue")
+            home_behinds = last.get("cumulativeBehindsDisplayValue")
+        if a_ls:
+            last = a_ls[-1]
+            away_goals   = last.get("cumulativeGoalsDisplayValue")
+            away_behinds = last.get("cumulativeBehindsDisplayValue")
+
+    return {
+        "home_name":    home.get("team", {}).get("displayName", "Home"),
+        "home_abbrev":  home.get("team", {}).get("abbreviation", "HOM"),
+        "home_score":   home_score,
+        "home_goals":   home_goals,
+        "home_behinds": home_behinds,
+        "away_name":    away.get("team", {}).get("displayName", "Away"),
+        "away_abbrev":  away.get("team", {}).get("abbreviation", "AWY"),
+        "away_score":   away_score,
+        "away_goals":   away_goals,
+        "away_behinds": away_behinds,
+        "period":       period_fn(hstat.get("period", 0)),
+        "clock":        hstat.get("displayClock", ""),
+        "detail":       htype.get("shortDetail", htype.get("detail", "")),
+        "state":        htype.get("state", "pre"),
     }
 
+
+# ── NBA ───────────────────────────────────────────────────────────────────────
+
+def parse_nba_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
+    if not data:
+        return {}, []
+
+    game_header = _parse_header_scores(data, "nba")
     players: List[Dict] = []
+
     for team_block in data.get("boxscore", {}).get("players", []):
         abbrev = team_block.get("team", {}).get("abbreviation", "")
         for stats_block in team_block.get("statistics", []):
-            names = [n.upper() for n in stats_block.get("names", [])]
+            names = [n.upper() for n in (stats_block.get("names") or [])]
             for ab in stats_block.get("athletes", []):
                 raw = ab.get("stats", [])
                 sm  = dict(zip(names, raw)) if raw else {}
                 ath = ab.get("athlete", {})
 
-                # Determine play status
                 raw_min = sm.get("MIN", "0")
-                # A player who did not play has "0:00", "0", or no minutes
                 did_not_play = (
                     not raw_min
                     or raw_min in ("0", "0:00")
                     or (not raw and ab.get("didNotPlay", False))
                 )
-                reason = ab.get("reason", "")
-                # Normalise common ESPN reason strings into concise labels
-                if reason:
-                    reason_upper = reason.upper()
-                    if "INJURY" in reason_upper or "INJURED" in reason_upper:
-                        status_label = "INJ"
-                    elif "SUSPENSION" in reason_upper or "SUSPENDED" in reason_upper:
-                        status_label = "SUSP"
-                    elif "ILLNESS" in reason_upper:
-                        status_label = "ILL"
-                    elif "REST" in reason_upper:
-                        status_label = "REST"
-                    elif "NOT WITH TEAM" in reason_upper or "PERSONAL" in reason_upper:
-                        status_label = "AWAY"
-                    elif did_not_play:
-                        status_label = "DNP"
-                    else:
-                        status_label = ""
-                elif did_not_play:
-                    status_label = "DNP"
-                else:
-                    status_label = ""
+                status_label = _dnp_label(ab, did_not_play)
 
                 players.append({
                     "name":         ath.get("displayName", "Unknown"),
@@ -257,26 +385,169 @@ def parse_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
                     "starter":      ab.get("starter", False),
                     "did_not_play": did_not_play,
                     "status_label": status_label,
-                    "reason":       reason,
                     "min":          raw_min if not did_not_play else "0:00",
                     "pts":          _int(sm.get("PTS", "0")),
                     "reb":          _int(sm.get("REB", "0")),
                     "ast":          _int(sm.get("AST", "0")),
                     "stl":          _int(sm.get("STL", "0")),
                     "blk":          _int(sm.get("BLK", "0")),
-                    "to":           _int(sm.get("TO",  "0")),
-                    "pf":           _int(sm.get("PF",  "0")),
                     "fg":           sm.get("FG",  "0-0"),
                     "fg3":          sm.get("3PT", "0-0"),
                     "ft":           sm.get("FT",  "0-0"),
                     "pm":           sm.get("+/-", "0"),
                 })
 
-    # Active players sorted by PTS desc; DNP players appended at the bottom
-    active  = [p for p in players if not p["did_not_play"]]
+    active   = [p for p in players if not p["did_not_play"]]
     inactive = [p for p in players if p["did_not_play"]]
     active.sort(key=lambda p: (p["pts"], p["ast"], p["reb"]), reverse=True)
     return game_header, active + inactive
+
+
+# ── NHL ───────────────────────────────────────────────────────────────────────
+
+def parse_nhl_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
+    if not data:
+        return {}, []
+
+    game_header = _parse_header_scores(data, "nhl")
+    players: List[Dict] = []
+
+    for team_block in data.get("boxscore", {}).get("players", []):
+        abbrev = team_block.get("team", {}).get("abbreviation", "")
+        for stats_block in team_block.get("statistics", []):
+            # NHL uses 'labels' (not 'names')
+            labels = [l.upper() for l in (stats_block.get("labels") or [])]
+            for ab in stats_block.get("athletes", []):
+                raw = ab.get("stats", [])
+                sm  = dict(zip(labels, raw)) if raw else {}
+                ath = ab.get("athlete", {})
+
+                toi = sm.get("TOI", "")
+                did_not_play = not toi or toi in ("0:00", "00:00", "0")
+                status_label = _dnp_label(ab, did_not_play)
+
+                g   = _int(sm.get("G",   "0"))
+                a   = _int(sm.get("A",   "0"))
+                pts = g + a
+
+                players.append({
+                    "name":         ath.get("displayName", "Unknown"),
+                    "pos":          ath.get("position", {}).get("abbreviation", ""),
+                    "team":         abbrev,
+                    "starter":      ab.get("starter", False),
+                    "did_not_play": did_not_play,
+                    "status_label": status_label,
+                    "toi":          toi if not did_not_play else "0:00",
+                    "g":            g,
+                    "a":            a,
+                    "pts":          pts,
+                    "pm":           sm.get("+/-", "0"),
+                    "sog":          _int(sm.get("S",    "0")),   # shots total
+                    "bs":           _int(sm.get("BS",   "0")),   # blocked shots
+                    "ht":           _int(sm.get("HT",   "0")),   # hits
+                    "pim":          _int(sm.get("PIM",  "0")),
+                    "fopct":        sm.get("FO%", "-"),
+                    "gv":           _int(sm.get("GV",   "0")),
+                    "tk":           _int(sm.get("TK",   "0")),
+                })
+
+    active   = [p for p in players if not p["did_not_play"]]
+    inactive = [p for p in players if p["did_not_play"]]
+    active.sort(key=lambda p: (p["pts"], p["g"], p["sog"]), reverse=True)
+    return game_header, active + inactive
+
+
+# ── AFL ───────────────────────────────────────────────────────────────────────
+
+def parse_afl_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
+    if not data:
+        return {}, []
+
+    game_header = _parse_header_scores(data, "afl")
+    players: List[Dict] = []
+
+    for team_block in data.get("boxscore", {}).get("players", []):
+        abbrev = team_block.get("team", {}).get("abbreviation", "")
+        for stats_block in team_block.get("statistics", []):
+            labels = [l.upper() for l in (stats_block.get("labels") or [])]
+            for ab in stats_block.get("athletes", []):
+                raw = ab.get("stats", [])
+                sm  = dict(zip(labels, raw)) if raw else {}
+                ath = ab.get("athlete", {})
+
+                k   = _int(sm.get("K",   "0"))
+                hb  = _int(sm.get("H",   "0"))
+                m   = _int(sm.get("M",   "0"))
+                t   = _int(sm.get("T",   "0"))
+                g   = _int(sm.get("G",   "0"))
+                b   = _int(sm.get("B",   "0"))
+                ho  = _int(sm.get("HO",  "0"))
+                ff  = _int(sm.get("FF",  "0"))
+                fa  = _int(sm.get("FA",  "0"))
+                i50 = _int(sm.get("I50", "0"))
+                r50 = _int(sm.get("R50", "0"))
+                d   = _int(sm.get("D",   "0"))  # disposals (k+hb)
+                fpts = _afl_fpts(k, hb, m, t, g, b, ho, ff, fa, i50, r50)
+
+                # AFL: consider a player DNP if all primary stats are zero and
+                # ESPN marks them inactive
+                did_not_play = (
+                    ab.get("active") is False
+                    or (not raw)
+                    or (d == 0 and g == 0 and t == 0 and m == 0 and ab.get("didNotPlay", False))
+                )
+                status_label = _dnp_label(ab, did_not_play)
+
+                players.append({
+                    "name":         ath.get("displayName", "Unknown"),
+                    "pos":          ath.get("position", {}).get("abbreviation", ""),
+                    "team":         abbrev,
+                    "starter":      ab.get("starter", False),
+                    "did_not_play": did_not_play,
+                    "status_label": status_label,
+                    "fpts":         fpts,
+                    "d":            d,
+                    "k":            k,
+                    "hb":           hb,
+                    "m":            m,
+                    "t":            t,
+                    "g":            g,
+                    "b":            b,
+                    "ho":           ho,
+                    "i50":          i50,
+                    "r50":          r50,
+                    "ff":           ff,
+                    "fa":           fa,
+                    "cp":           _int(sm.get("CP", "0")),
+                })
+
+    active   = [p for p in players if not p["did_not_play"]]
+    inactive = [p for p in players if p["did_not_play"]]
+    active.sort(key=lambda p: (p["fpts"], p["d"]), reverse=True)
+    return game_header, active + inactive
+
+
+# ── Shared helpers ────────────────────────────────────────────────────────────
+
+def _dnp_label(ab: Dict, did_not_play: bool) -> str:
+    reason = ab.get("reason", "")
+    if reason:
+        ru = reason.upper()
+        if "INJURY" in ru or "INJURED" in ru:  return "INJ"
+        if "SUSPENSION" in ru or "SUSPENDED" in ru: return "SUSP"
+        if "ILLNESS" in ru:                    return "ILL"
+        if "REST" in ru:                       return "REST"
+        if "NOT WITH TEAM" in ru or "PERSONAL" in ru: return "AWAY"
+        if did_not_play:                       return "DNP"
+        return ""
+    return "DNP" if did_not_play else ""
+
+
+_PARSE_BOXSCORE = {
+    "nba": parse_nba_boxscore,
+    "nhl": parse_nhl_boxscore,
+    "afl": parse_afl_boxscore,
+}
 
 
 def _flatten_games(games: List[Dict]) -> List[Dict]:
@@ -297,11 +568,12 @@ class App:
 
         # State
         self.state = "sport_select"  # sport_select | game_list | game_detail
+        self.current_sport = "nba"
 
         # Navigation indices
         self.sport_idx     = 0
         self.game_idx      = 0
-        self.game_scroll   = 0   # top row of visible game list window
+        self.game_scroll   = 0
         self.player_scroll = 0
         self.team_filter   = 0   # 0=All, 1=Away team, 2=Home team
 
@@ -316,9 +588,7 @@ class App:
         self.loading                       = False
         self.current_game_id: Optional[str] = None
 
-        # Stale-fetch guard — captures (state, game_id) at fetch-start so we
-        # never apply results that belong to a different screen/game.
-        self._fetch_token: Tuple[str, Optional[str]] = ("", None)
+        self._fetch_token: Tuple[str, Optional[str], str] = ("", None, "nba")
         self._lock    = threading.Lock()
         self._running = True
         self._wake    = threading.Event()
@@ -356,6 +626,8 @@ class App:
                     self.player_scroll = 0
                 elif self.state == "game_list":
                     self.state = "sport_select"
+                    with self._lock:
+                        self.games = []
                 else:
                     break
             elif key == curses.KEY_UP:
@@ -366,7 +638,7 @@ class App:
                 self._on_enter()
             elif key == ord("r"):
                 self._wake.set()
-            elif key == ord("\t"):   # TAB — cycle team filter in game detail
+            elif key == ord("\t"):
                 if self.state == "game_detail":
                     self.team_filter   = (self.team_filter + 1) % 3
                     self.player_scroll = 0
@@ -401,9 +673,12 @@ class App:
         if self.state == "sport_select":
             sport = SPORTS[self.sport_idx]
             if sport["available"]:
+                self.current_sport = sport["id"]
                 self.state = "game_list"
-                self.game_idx  = 0
+                self.game_idx    = 0
                 self.game_scroll = 0
+                with self._lock:
+                    self.games = []
                 self._wake.set()
         elif self.state == "game_list":
             with self._lock:
@@ -430,38 +705,39 @@ class App:
             self._wake.clear()
 
     def _fetch(self) -> None:
-        # Snapshot the current intent so stale results are discarded
-        token = (self.state, self.current_game_id)
+        sport = self.current_sport
+        token = (self.state, self.current_game_id, sport)
         self._fetch_token = token
         self.loading = True
         try:
             state = token[0]
             if state == "game_list":
-                data = fetch_scoreboard()
+                data = fetch_scoreboard(sport)
                 with self._lock:
                     if self._fetch_token != token:
-                        return  # navigated away while fetching
+                        return
                     if data is not None:
-                        self.games        = parse_games(data)
+                        self.games        = parse_games(data, sport)
                         self.last_refresh = time.time()
                         self.fetch_error  = None
                     else:
                         self.fetch_error = "Network error — press r to retry"
 
             elif state == "game_detail" and token[1]:
-                data = fetch_game_detail(token[1])
+                data = fetch_game_detail(token[1], sport)
                 if data is not None:
-                    header, players = parse_boxscore(data)
+                    parse_fn = _PARSE_BOXSCORE.get(sport, parse_nba_boxscore)
+                    header, players = parse_fn(data)
                     new_ranks = {p["name"]: i for i, p in enumerate(players)}
                     changes: Dict[str, int] = {}
                     with self._lock:
                         prev = dict(self._prev_ranks)
                     for name, nr in new_ranks.items():
                         if name in prev and prev[name] != nr:
-                            changes[name] = prev[name] - nr  # +ve = moved up
+                            changes[name] = prev[name] - nr
                     with self._lock:
                         if self._fetch_token != token:
-                            return  # user navigated elsewhere mid-fetch
+                            return
                         self.game_header  = header
                         self.players      = players
                         self.rank_changes = changes
@@ -564,20 +840,16 @@ class App:
         sy      = max(1, (h - block_h) // 2)
         lx      = max(0, (w - logo_w) // 2)
 
-        # Logo
         for i, line in enumerate(LOGO):
             self._add(sy + i, lx, line, cp("logo", bold=True))
 
-        # Tagline
         ty = sy + len(LOGO) + 1
         self._add_center(ty, TAGLINE, curses.A_DIM)
 
-        # Divider
         div_y = ty + 2
         div   = "─" * min(50, w - 4)
         self._add_center(div_y, div, curses.A_DIM)
 
-        # Sport list
         list_y = div_y + 2
         list_w = 38
         list_x = max(0, (w - list_w) // 2)
@@ -594,16 +866,8 @@ class App:
                 row_attr = curses.A_NORMAL
                 arrow    = " "
 
-            if sport["available"]:
-                self._add(y, list_x, f" {arrow} {sport['label']}", row_attr)
-            else:
-                label = f" {arrow} {sport['label']}  · Coming Soon"
-                if sel:
-                    self._add(y, list_x, label, cp("selected"))
-                else:
-                    self._add(y, list_x, label, curses.A_DIM)
+            self._add(y, list_x, f" {arrow} {sport['label']}", row_attr)
 
-        # Hint at bottom
         hint = "  ↑↓ Navigate   ↵ Select   q Quit  "
         self._add_center(h - 3, hint, curses.A_DIM)
 
@@ -612,7 +876,8 @@ class App:
     def _game_list(self) -> None:
         h, w = self.scr.getmaxyx()
 
-        self._bar(0, "NBA  ·  Today's Games", cp("header", bold=True))
+        sport_label = self.current_sport.upper()
+        self._bar(0, f"{sport_label}  ·  Today's Games", cp("header", bold=True))
 
         with self._lock:
             games = list(self.games)
@@ -632,13 +897,13 @@ class App:
             if self.loading:
                 self._add_center(h // 2, "⟳  Fetching games...", curses.A_DIM)
             else:
-                self._add_center(h // 2 - 1, "No NBA games scheduled today.", curses.A_DIM)
+                self._add_center(h // 2 - 1,
+                    f"No {sport_label} games scheduled today.", curses.A_DIM)
                 self._add_center(h // 2 + 1, "Press  r  to refresh.", curses.A_DIM)
             return
 
-        # Clamp selection, then keep selected row visible (scroll window)
         self.game_idx = max(0, min(self.game_idx, len(flat) - 1))
-        visible_rows  = h - 3  # rows between header bar and status bar
+        visible_rows  = h - 3
         if self.game_idx < self.game_scroll:
             self.game_scroll = self.game_idx
         elif self.game_idx >= self.game_scroll + visible_rows:
@@ -646,18 +911,17 @@ class App:
 
         y       = 1
         flat_i  = 0
-        row_abs = 0  # absolute rendered-row counter (for scroll window)
+        row_abs = 0
 
         for glist, label, badge_key in sections:
             if not glist:
                 continue
 
-            # Section header (always rendered at its natural position)
             if row_abs >= self.game_scroll and y < h - 2:
                 self._bar(y, label, cp(badge_key, bold=True))
                 y += 1
             elif row_abs < self.game_scroll:
-                pass  # scrolled past; don't advance y
+                pass
             row_abs += 1
 
             for g in glist:
@@ -671,21 +935,24 @@ class App:
 
                     pfx = " ► " if sel else "   "
 
-                    # Safe score formatting (ESPN can return "" or "--")
-                    a_sc = _int(g["away_score"])
-                    h_sc = _int(g["home_score"])
+                    # For AFL, score string already includes G.B.Total if available
+                    a_sc = g["away_score"]
+                    h_sc = g["home_score"]
+                    # Numeric totals for width calculation
+                    a_total = _int(a_sc.split(".")[-1] if "." in a_sc else a_sc)
+                    h_total = _int(h_sc.split(".")[-1] if "." in h_sc else h_sc)
 
                     if g["status"] == "live":
                         line = (
                             f"{pfx}{g['away_abbrev']:>4}  "
-                            f"{a_sc:>3} - {h_sc:<3}"
+                            f"{a_sc:>12} - {h_sc:<12}"
                             f"  {g['home_abbrev']:<4}   "
                             f"{g['period']} {g['clock']}"
                         )
                     elif g["status"] == "final":
                         line = (
                             f"{pfx}{g['away_abbrev']:>4}  "
-                            f"{a_sc:>3} - {h_sc:<3}"
+                            f"{a_sc:>12} - {h_sc:<12}"
                             f"  {g['home_abbrev']:<4}   FINAL"
                         )
                     else:
@@ -704,25 +971,25 @@ class App:
                 row_abs += 1
                 flat_i  += 1
 
-            row_abs += 1  # gap row between sections
+            row_abs += 1
 
     # ── Screen: Game Detail ───────────────────────────────────────────────────
 
     def _game_detail(self) -> None:
         h, w = self.scr.getmaxyx()
+        sport = self.current_sport
+        table_cols = SPORT_TABLE_COLS.get(sport, NBA_TABLE_COLS)
 
         with self._lock:
             header  = dict(self.game_header)
             players = list(self.players)
             changes = dict(self.rank_changes)
 
-        # Clamp scroll in case player list shrank after a refresh
         if players:
             self.player_scroll = max(0, min(self.player_scroll, len(players) - 1))
         else:
             self.player_scroll = 0
 
-        # ── Loading / error state ──────────────────────────────────────────
         if not header:
             if self.loading:
                 self._add_center(h // 2, "⟳  Loading game data...", curses.A_DIM)
@@ -742,13 +1009,12 @@ class App:
             state_tag = f"  {header.get('detail', 'Upcoming')}"
             tag_attr  = cp("upcoming_b", bold=True)
 
-        # Header bar
         title = f"  {header['away_abbrev']} @ {header['home_abbrev']}"
         self._bar(0, title, cp("header", bold=True))
         self._add(0, w - len(state_tag) - 2, state_tag, tag_attr)
 
         # ── Score box (rows 1–7) ──────────────────────────────────────────
-        BOX_H = 7
+        BOX_H    = 7
         box_attr = cp("score_box")
 
         for row in range(1, BOX_H + 1):
@@ -762,8 +1028,19 @@ class App:
         away_name = away_name[:max_name]
         home_name = home_name[:max_name]
 
-        away_score = str(header.get("away_score", "0"))
-        home_score = str(header.get("home_score", "0"))
+        # Score display — AFL shows G.B.Total if goals/behinds are available
+        if sport == "afl":
+            ag = header.get("away_goals")
+            ab = header.get("away_behinds")
+            hg = header.get("home_goals")
+            hb_val = header.get("home_behinds")
+            away_score = (f"{ag}.{ab}.{header['away_score']}"
+                          if ag and ab else str(header.get("away_score", "0")))
+            home_score = (f"{hg}.{hb_val}.{header['home_score']}"
+                          if hg and hb_val else str(header.get("home_score", "0")))
+        else:
+            away_score = str(header.get("away_score", "0"))
+            home_score = str(header.get("home_score", "0"))
 
         # Team names row (row 2)
         name_y = 2
@@ -774,7 +1051,7 @@ class App:
 
         # Scores row (row 4)
         score_y = 4
-        self._add(score_y, max(2, mid - len(away_score) - 7), away_score,
+        self._add(score_y, max(2, mid - len(away_score) - 4), away_score,
                   cp("score_away", bold=True))
         self._add(score_y, mid - 1, "●", box_attr)
         self._add(score_y, mid + 3, home_score,
@@ -797,7 +1074,6 @@ class App:
         div_y = BOX_H + 1
         self._add(div_y, 0, "─" * (w - 1), curses.A_DIM)
 
-        # Tab bar — drawn in the divider row after the line
         tab_x = 2
         for i, label in enumerate(tab_labels):
             if i == self.team_filter:
@@ -820,7 +1096,6 @@ class App:
         else:
             visible_players = players
 
-        # Re-clamp scroll against filtered list
         if visible_players:
             self.player_scroll = max(0, min(self.player_scroll, len(visible_players) - 1))
         else:
@@ -832,7 +1107,7 @@ class App:
 
         col_x = 1
         col_positions: List[int] = []
-        for cname, cw, align in TABLE_COLS:
+        for cname, cw, align in table_cols:
             if align == "center":  s = cname.center(cw)
             elif align == "left":  s = cname.ljust(cw)
             else:                  s = cname.rjust(cw)
@@ -852,7 +1127,6 @@ class App:
 
             row_attr = curses.A_DIM if dnp else curses.A_NORMAL
 
-            # Rank-change arrow (only meaningful for active players)
             chg = changes.get(player["name"], 0) if not dnp else 0
             if chg > 0:
                 chg_str, chg_attr = "↑", cp("positive", bold=True)
@@ -862,53 +1136,14 @@ class App:
                 chg_str, chg_attr = " ", row_attr
 
             if dnp:
-                # DNP row: show name, team, pos, then status label spanning stats
                 status = player.get("status_label", "DNP") or "DNP"
-                cells = [
-                    (str(rank).rjust(3),                   row_attr),
-                    (" ",                                   row_attr),
-                    (player["name"][:22].ljust(22),         row_attr),
-                    (player["team"][:4].ljust(4),           row_attr),
-                    (player["pos"][:3].center(3),           row_attr),
-                    (status.center(5),                      cp("negative")),
-                    ("",  row_attr), ("",  row_attr), ("",  row_attr),
-                    ("",  row_attr), ("",  row_attr), ("",  row_attr),
-                    ("",  row_attr), ("",  row_attr), ("",  row_attr),
-                ]
+                cells  = self._dnp_cells(rank, player, status, row_attr,
+                                         len(table_cols))
             else:
-                # +/- colour
-                try:
-                    pm_n = int(str(player["pm"]).replace("+", ""))
-                    if pm_n > 0:
-                        pm_str, pm_attr = f"+{pm_n}", cp("positive")
-                    elif pm_n < 0:
-                        pm_str, pm_attr = str(pm_n), cp("negative")
-                    else:
-                        pm_str, pm_attr = "0", row_attr
-                except (ValueError, TypeError):
-                    pm_str, pm_attr = str(player["pm"]), row_attr
+                cells = self._player_cells(rank, player, chg_str, chg_attr,
+                                           row_attr, sport)
 
-                pts_attr = (row_attr | curses.A_BOLD) if player["pts"] >= 20 else row_attr
-
-                cells = [
-                    (str(rank).rjust(3),                   row_attr),
-                    (chg_str,                               chg_attr),
-                    (player["name"][:22].ljust(22),         row_attr | curses.A_BOLD),
-                    (player["team"][:4].ljust(4),           row_attr),
-                    (player["pos"][:3].center(3),           row_attr),
-                    (player["min"][:5].rjust(5),            row_attr),
-                    (str(player["pts"]).rjust(4),           pts_attr),
-                    (str(player["reb"]).rjust(4),           row_attr),
-                    (str(player["ast"]).rjust(4),           row_attr),
-                    (str(player["stl"]).rjust(3),           row_attr),
-                    (str(player["blk"]).rjust(3),           row_attr),
-                    (player["fg"][:7].center(7),            row_attr),
-                    (player["fg3"][:7].center(7),           row_attr),
-                    (player["ft"][:6].center(6),            row_attr),
-                    (pm_str[:4].rjust(4),                   pm_attr),
-                ]
-
-            for (_, cw, _), (val, vattr), cx in zip(TABLE_COLS, cells, col_positions):
+            for (_, cw, _), (val, vattr), cx in zip(table_cols, cells, col_positions):
                 self._add(ry, cx, val[:cw], vattr)
 
         # Scroll indicator
@@ -921,6 +1156,113 @@ class App:
                 f"  ({pct}%) "
             )
             self._add(h - 2, 1, scroll_msg, curses.A_DIM)
+
+    # ── Cell builders ─────────────────────────────────────────────────────────
+
+    def _dnp_cells(self, rank: int, player: Dict, status: str,
+                   row_attr: int, total_cols: int) -> list:
+        """Build cells for a did-not-play row (works for all sports)."""
+        name_w = 22 if self.current_sport != "afl" else 20
+        cells = [
+            (str(rank).rjust(3),                     row_attr),
+            (" ",                                     row_attr),
+            (player["name"][:name_w].ljust(name_w),  row_attr),
+            (player["team"][:4].ljust(4),             row_attr),
+            (player["pos"][:3].center(3),             row_attr),
+            (status.center(4),                        cp("negative")),
+        ]
+        # Pad with blanks for the remaining stat columns
+        while len(cells) < total_cols:
+            cells.append(("", row_attr))
+        return cells
+
+    def _player_cells(self, rank: int, player: Dict, chg_str: str,
+                      chg_attr: int, row_attr: int, sport: str) -> list:
+        """Build stat cells for an active player (sport-dispatched)."""
+        if sport == "nhl":
+            return self._nhl_cells(rank, player, chg_str, chg_attr, row_attr)
+        if sport == "afl":
+            return self._afl_cells(rank, player, chg_str, chg_attr, row_attr)
+        return self._nba_cells(rank, player, chg_str, chg_attr, row_attr)
+
+    def _nba_cells(self, rank, player, chg_str, chg_attr, row_attr):
+        try:
+            pm_n = int(str(player["pm"]).replace("+", ""))
+            if pm_n > 0:   pm_str, pm_attr = f"+{pm_n}", cp("positive")
+            elif pm_n < 0: pm_str, pm_attr = str(pm_n), cp("negative")
+            else:          pm_str, pm_attr = "0", row_attr
+        except (ValueError, TypeError):
+            pm_str, pm_attr = str(player["pm"]), row_attr
+
+        pts_attr = (row_attr | curses.A_BOLD) if player["pts"] >= 20 else row_attr
+        return [
+            (str(rank).rjust(3),                    row_attr),
+            (chg_str,                                chg_attr),
+            (player["name"][:22].ljust(22),          row_attr | curses.A_BOLD),
+            (player["team"][:4].ljust(4),            row_attr),
+            (player["pos"][:3].center(3),            row_attr),
+            (player["min"][:5].rjust(5),             row_attr),
+            (str(player["pts"]).rjust(4),            pts_attr),
+            (str(player["reb"]).rjust(4),            row_attr),
+            (str(player["ast"]).rjust(4),            row_attr),
+            (str(player["stl"]).rjust(3),            row_attr),
+            (str(player["blk"]).rjust(3),            row_attr),
+            (player["fg"][:7].center(7),             row_attr),
+            (player["fg3"][:7].center(7),            row_attr),
+            (player["ft"][:6].center(6),             row_attr),
+            (pm_str[:4].rjust(4),                    pm_attr),
+        ]
+
+    def _nhl_cells(self, rank, player, chg_str, chg_attr, row_attr):
+        try:
+            pm_n = int(str(player["pm"]).replace("+", ""))
+            if pm_n > 0:   pm_str, pm_attr = f"+{pm_n}", cp("positive")
+            elif pm_n < 0: pm_str, pm_attr = str(pm_n), cp("negative")
+            else:          pm_str, pm_attr = "0", row_attr
+        except (ValueError, TypeError):
+            pm_str, pm_attr = str(player["pm"]), row_attr
+
+        pts_attr = (row_attr | curses.A_BOLD) if player["pts"] >= 2 else row_attr
+        return [
+            (str(rank).rjust(3),                    row_attr),
+            (chg_str,                                chg_attr),
+            (player["name"][:22].ljust(22),          row_attr | curses.A_BOLD),
+            (player["team"][:4].ljust(4),            row_attr),
+            (player["pos"][:3].center(3),            row_attr),
+            (player["toi"][:5].rjust(5),             row_attr),
+            (str(player["g"]).rjust(3),              pts_attr),
+            (str(player["a"]).rjust(3),              row_attr),
+            (str(player["pts"]).rjust(3),            pts_attr),
+            (pm_str[:4].rjust(4),                    pm_attr),
+            (str(player["sog"]).rjust(4),            row_attr),
+            (str(player["bs"]).rjust(4),             row_attr),
+            (str(player["ht"]).rjust(4),             row_attr),
+            (str(player["pim"]).rjust(4),            row_attr),
+            (str(player["fopct"])[:5].rjust(5),      row_attr),
+        ]
+
+    def _afl_cells(self, rank, player, chg_str, chg_attr, row_attr):
+        fpts_attr = (row_attr | curses.A_BOLD) if player["fpts"] >= 100 else row_attr
+        return [
+            (str(rank).rjust(3),                    row_attr),
+            (chg_str,                                chg_attr),
+            (player["name"][:20].ljust(20),          row_attr | curses.A_BOLD),
+            (player["team"][:4].ljust(4),            row_attr),
+            (player["pos"][:3].center(3),            row_attr),
+            (str(player["fpts"]).rjust(4),           fpts_attr),
+            (str(player["d"]).rjust(4),              row_attr),
+            (str(player["k"]).rjust(3),              row_attr),
+            (str(player["hb"]).rjust(3),             row_attr),
+            (str(player["m"]).rjust(3),              row_attr),
+            (str(player["t"]).rjust(3),              row_attr),
+            (str(player["g"]).rjust(3),              row_attr),
+            (str(player["b"]).rjust(3),              row_attr),
+            (str(player["ho"]).rjust(3),             row_attr),
+            (str(player["i50"]).rjust(4),            row_attr),
+            (str(player["r50"]).rjust(4),            row_attr),
+            (str(player["ff"]).rjust(3),             row_attr),
+            (str(player["fa"]).rjust(3),             row_attr),
+        ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
