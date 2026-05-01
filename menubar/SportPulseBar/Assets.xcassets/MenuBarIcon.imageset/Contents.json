@@ -1,11 +1,12 @@
 {
   "images" : [
     {
-      "filename" : "menubar-icon.pdf",
+      "filename" : "menubar-icon-18.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
+      "filename" : "menubar-icon-36.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
@@ -19,6 +20,6 @@
     "version" : 1
   },
   "properties" : {
-    "preserves-vector-representation" : true
+    "renders-as" : "template"
   }
 }
