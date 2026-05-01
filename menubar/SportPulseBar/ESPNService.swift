@@ -95,11 +95,20 @@ actor ESPNService {
                 _ = awayLinescores; _ = homeLinescores
             }
 
-            let detail     = statusType["detail"] as? String ?? ""
+            let detail      = statusType["detail"] as? String ?? ""
             let shortDetail = statusType["shortDetail"] as? String ?? detail
-            let period     = periodString(from: comps, sport: sport, statusType: statusType)
-            let clock      = clockString(from: comps)
-            let isLive     = status == .live
+            let period      = periodString(from: comps, sport: sport, statusType: statusType)
+            let clock       = clockString(from: comps)
+            let isLive      = status == .live
+
+            // For pre-game, replace ESPN's ET-formatted time with AWST (UTC+8)
+            let eventDate   = event["date"] as? String ?? comps["date"] as? String
+            let displayTime: String
+            if status == .pre, let iso = eventDate {
+                displayTime = formatAWST(isoDate: iso)
+            } else {
+                displayTime = shortDetail
+            }
 
             games.append(GameSummary(
                 id:           id,
@@ -113,7 +122,7 @@ actor ESPNService {
                 awayScore:    awayScore,
                 homeScore:    homeScore,
                 status:       status,
-                statusDetail: shortDetail,
+                statusDetail: displayTime,
                 period:       period,
                 clock:        clock,
                 isLive:       isLive
@@ -143,6 +152,23 @@ actor ESPNService {
     private func clockString(from comps: [String: Any]) -> String {
         let clock = comps["clock"] as? [String: Any] ?? [:]
         return clock["displayValue"] as? String ?? ""
+    }
+
+    /// Parses an ESPN ISO 8601 UTC date string and returns the time in AWST (UTC+8).
+    private func formatAWST(isoDate: String) -> String {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        var date = parser.date(from: isoDate)
+        if date == nil {
+            parser.formatOptions = [.withInternetDateTime]
+            date = parser.date(from: isoDate)
+        }
+        guard let date else { return isoDate }
+
+        let fmt = DateFormatter()
+        fmt.timeZone = TimeZone(identifier: "Australia/Perth")
+        fmt.dateFormat = "h:mm a"
+        return fmt.string(from: date)
     }
 
     // ─────────────────────────────────────────────────────────────────────────

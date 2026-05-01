@@ -114,10 +114,8 @@ struct GameRowView: View {
     // ── Team blocks ───────────────────────────────────────────────────────────
 
     private var awayBlock: some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            Text(game.awayAbbrev)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(teamColor(sport: game.sport, abbrev: game.awayAbbrev))
+        VStack(alignment: .trailing, spacing: 4) {
+            teamLogo(url: game.awayLogo, abbrev: game.awayAbbrev)
             Text(game.awayName)
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
@@ -126,14 +124,40 @@ struct GameRowView: View {
     }
 
     private var homeBlock: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(game.homeAbbrev)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(teamColor(sport: game.sport, abbrev: game.homeAbbrev))
+        VStack(alignment: .leading, spacing: 4) {
+            teamLogo(url: game.homeLogo, abbrev: game.homeAbbrev)
             Text(game.homeName)
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder
+    private func teamLogo(url: URL?, abbrev: String) -> some View {
+        if let url {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFit()
+                default:
+                    logoFallback(abbrev)
+                }
+            }
+            .frame(width: 30, height: 30)
+        } else {
+            logoFallback(abbrev)
+                .frame(width: 30, height: 30)
+        }
+    }
+
+    private func logoFallback(_ abbrev: String) -> some View {
+        ZStack {
+            Circle()
+                .fill(teamColor(sport: game.sport, abbrev: abbrev).opacity(0.15))
+            Text(String(abbrev.prefix(3)))
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(teamColor(sport: game.sport, abbrev: abbrev))
         }
     }
 
