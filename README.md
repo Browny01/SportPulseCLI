@@ -12,7 +12,7 @@
         Real-time Sports Stats  ·  Powered by ESPN
 ```
 
-SportPulse is a Python terminal UI (TUI) that shows live game scores, player stats, league standings, and supports round-by-round navigation — all in the style of official sports websites but entirely in your CLI.
+SportPulse is a **Python terminal UI (TUI)** that shows live game scores, player stats, league standings, and supports round-by-round navigation — all in the style of official sports websites but entirely in your CLI. It also ships a native **macOS menu bar app** that cycles live scores right in your menu bar.
 
 ---
 
@@ -135,6 +135,41 @@ AFL  ·  Standings
    1  FRE  Fremantle         7    0   0    28  175.2    +312  WWWWWWW
    2  GWS  GWS Giants        6    1   0    24  148.6    +201  LWWWWWW
 ```
+
+---
+
+## 🍎 Menu Bar App (macOS)
+
+SportPulse also ships a native **SwiftUI menu bar app** that shows live scores directly in your macOS menu bar — no terminal required.
+
+### Features
+- **Live score cycling** in the menu bar: `🏀 LAL 95 · GSW 88 Q4 2:14` — rotates through all live games every 3 seconds
+- **Popover on click**: sport tabs (NBA / NHL / AFL / NFL) → game list → full game detail
+- **Score card**: styled score box with team colours, period, clock
+- **Player stats table**: scrollable, colour-highlighted key performers
+- **Timeline tab**: scoring plays in reverse-chronological order
+- **H2H tab**: season series / recent meetings
+- **Watch on Kayo**: opens the Kayo Sports page directly from any game
+- Auto-refreshes every 20s (12s during live games)
+
+### Requirements
+- macOS 13.0 (Ventura) or later
+- Xcode 15+ and [`xcodegen`](https://github.com/yonaskolb/XcodeGen)
+
+### Build & Install
+
+```bash
+# Install xcodegen if needed
+brew install xcodegen
+
+# Generate and open the Xcode project
+cd menubar
+xcodegen generate
+open SportPulseBar.xcodeproj
+```
+
+Then in Xcode: **Product → Run** (⌘R).  
+The app hides from the Dock — look for the score in your menu bar.
 
 ---
 

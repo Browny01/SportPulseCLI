@@ -1,0 +1,348 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		065C4B934B932DF37F403D99 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F8A1921466BB56869CBC280 /* Models.swift */; };
+		59B82D681071E9A9F4E58DEA /* GameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7444A98BC24A824356A354D4 /* GameDetailView.swift */; };
+		74BA9B914A3DDC0CBC5F9DA6 /* SportTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B97D85BCAEC6675B0B2E517A /* SportTabView.swift */; };
+		7FEDC6956B50F4F6504E7F7A /* ESPNService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D19626D64DA8894804808BE /* ESPNService.swift */; };
+		9AA6D33BEF26CDA1175FA333 /* SportPulseBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6AC54D6566CF750A596753 /* SportPulseBarApp.swift */; };
+		ACEDE79ECD1AEA7B9F68AA2B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84586B250D63D6B97905F799 /* AppState.swift */; };
+		DD23839E22AC1B46A4B5DE60 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0A2617D63FA2916DB4D97769 /* Assets.xcassets */; };
+		F335B9CE0DC6F4117F3D46FA /* PopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA896405BF6EFF54509DDD23 /* PopoverView.swift */; };
+		FA2422D550BAA0DE67A99F83 /* PlayerRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EF7BECF4D268B0FC0B6D9FC /* PlayerRowView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0A2617D63FA2916DB4D97769 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1F8A1921466BB56869CBC280 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		3EF7BECF4D268B0FC0B6D9FC /* PlayerRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerRowView.swift; sourceTree = "<group>"; };
+		4D19626D64DA8894804808BE /* ESPNService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESPNService.swift; sourceTree = "<group>"; };
+		615328D57FA7E560974EB98A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7444A98BC24A824356A354D4 /* GameDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailView.swift; sourceTree = "<group>"; };
+		84586B250D63D6B97905F799 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		88A4AF05D7D7DD2632CE8CF1 /* SportPulseBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SportPulseBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9F6AC54D6566CF750A596753 /* SportPulseBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportPulseBarApp.swift; sourceTree = "<group>"; };
+		B97D85BCAEC6675B0B2E517A /* SportTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportTabView.swift; sourceTree = "<group>"; };
+		CA896405BF6EFF54509DDD23 /* PopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverView.swift; sourceTree = "<group>"; };
+		D34337A94AADE2E040AC6A34 /* SportPulseBar.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SportPulseBar.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		22CD7302EA0B069DB9F7148F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				88A4AF05D7D7DD2632CE8CF1 /* SportPulseBar.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		32EAD83B4BBBB385AA3E7938 /* SportPulseBar */ = {
+			isa = PBXGroup;
+			children = (
+				84586B250D63D6B97905F799 /* AppState.swift */,
+				0A2617D63FA2916DB4D97769 /* Assets.xcassets */,
+				4D19626D64DA8894804808BE /* ESPNService.swift */,
+				615328D57FA7E560974EB98A /* Info.plist */,
+				1F8A1921466BB56869CBC280 /* Models.swift */,
+				D34337A94AADE2E040AC6A34 /* SportPulseBar.entitlements */,
+				9F6AC54D6566CF750A596753 /* SportPulseBarApp.swift */,
+				964C227693EFAD416CF7B939 /* Views */,
+			);
+			path = SportPulseBar;
+			sourceTree = "<group>";
+		};
+		58536F6D98220D0FDDC3D2D1 = {
+			isa = PBXGroup;
+			children = (
+				32EAD83B4BBBB385AA3E7938 /* SportPulseBar */,
+				22CD7302EA0B069DB9F7148F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		964C227693EFAD416CF7B939 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				7444A98BC24A824356A354D4 /* GameDetailView.swift */,
+				3EF7BECF4D268B0FC0B6D9FC /* PlayerRowView.swift */,
+				CA896405BF6EFF54509DDD23 /* PopoverView.swift */,
+				B97D85BCAEC6675B0B2E517A /* SportTabView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		594062CD6B971B0DDCFEFD79 /* SportPulseBar */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 54CDC299DFDC60BF9476509A /* Build configuration list for PBXNativeTarget "SportPulseBar" */;
+			buildPhases = (
+				3AFAF1DAC8D88A8120C9E2CC /* Sources */,
+				807D0506E0B2F892DAC4502E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SportPulseBar;
+			packageProductDependencies = (
+			);
+			productName = SportPulseBar;
+			productReference = 88A4AF05D7D7DD2632CE8CF1 /* SportPulseBar.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D122DB132D5E4B964D2EBB7E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					594062CD6B971B0DDCFEFD79 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 20E55CC5999C72F672473A11 /* Build configuration list for PBXProject "SportPulseBar" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 58536F6D98220D0FDDC3D2D1;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 22CD7302EA0B069DB9F7148F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				594062CD6B971B0DDCFEFD79 /* SportPulseBar */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		807D0506E0B2F892DAC4502E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DD23839E22AC1B46A4B5DE60 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3AFAF1DAC8D88A8120C9E2CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ACEDE79ECD1AEA7B9F68AA2B /* AppState.swift in Sources */,
+				7FEDC6956B50F4F6504E7F7A /* ESPNService.swift in Sources */,
+				59B82D681071E9A9F4E58DEA /* GameDetailView.swift in Sources */,
+				065C4B934B932DF37F403D99 /* Models.swift in Sources */,
+				FA2422D550BAA0DE67A99F83 /* PlayerRowView.swift in Sources */,
+				F335B9CE0DC6F4117F3D46FA /* PopoverView.swift in Sources */,
+				9AA6D33BEF26CDA1175FA333 /* SportPulseBarApp.swift in Sources */,
+				74BA9B914A3DDC0CBC5F9DA6 /* SportTabView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2DF7D015FFA580890DD43D1F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		9B9F3CA0CA860AB52B865582 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SportPulseBar/SportPulseBar.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = SportPulseBar/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sportpulse.menubar;
+				PRODUCT_NAME = SportPulseBar;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		BBCBDB6C776F9FCAF13879FC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C24D630C231B93DA5BC38685 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SportPulseBar/SportPulseBar.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = SportPulseBar/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sportpulse.menubar;
+				PRODUCT_NAME = SportPulseBar;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		20E55CC5999C72F672473A11 /* Build configuration list for PBXProject "SportPulseBar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBCBDB6C776F9FCAF13879FC /* Debug */,
+				2DF7D015FFA580890DD43D1F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		54CDC299DFDC60BF9476509A /* Build configuration list for PBXNativeTarget "SportPulseBar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9B9F3CA0CA860AB52B865582 /* Debug */,
+				C24D630C231B93DA5BC38685 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D122DB132D5E4B964D2EBB7E /* Project object */;
+}

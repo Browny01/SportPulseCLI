@@ -1,0 +1,28 @@
+name: SportPulseBar
+options:
+  bundleIdPrefix: com.sportpulse
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+
+targets:
+  SportPulseBar:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: SportPulseBar
+    settings:
+      base:
+        PRODUCT_NAME: SportPulseBar
+        PRODUCT_BUNDLE_IDENTIFIER: com.sportpulse.menubar
+        SWIFT_VERSION: 6.0
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        INFOPLIST_FILE: SportPulseBar/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+    entitlements:
+      path: SportPulseBar/SportPulseBar.entitlements
+      properties:
+        com.apple.security.network.client: true
