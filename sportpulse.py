@@ -29,7 +29,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 # CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 
-REFRESH_INTERVAL = 30
+REFRESH_INTERVAL = 20   # seconds between auto-refreshes
+LIVE_REFRESH     = 12   # faster refresh when a live game is open
 
 SPORT_PATHS: Dict[str, str] = {
     "nba": "basketball/nba",
@@ -58,15 +59,15 @@ SPORTS = [
 ]
 
 LOGO = [
-    " ____                   _   ____        _           ",
-    "/ ___| _ __   ___  _ __| |_|  _ \\ _   _| |___  ___ ",
-    "\\___ \\| '_ \\ / _ \\| '__| __| |_) | | | | / __|/ _ \\",
-    " ___) | |_) | (_) | |  | |_|  __/| |_| | \\__ \\  __/",
-    "|____/| .__/ \\___/|_|   \\__|_|    \\__,_|_|___/\\___|",
-    "      |_|                                           ",
+    "   _____                  __  ____        __        ",
+    "  / ___/____  ____  _____/ /_/ __ \\__  __/ /_______ ",
+    "  \\__ \\/ __ \\/ __ \\/ ___/ __/ /_/ / / / / / ___/ _ \\",
+    " ___/ / /_/ / /_/ / /  / /_/ ____/ /_/ / (__  )  __/",
+    "/____/ .___/\\____/_/   \\__/_/    \\__,_/_/____/\\___/ ",
+    "    /_/                                              ",
 ]
 
-TAGLINE = "Real-time Sports Stats  ·  Powered by ESPN"
+TAGLINE = "  ◈  Live Scores  ·  Player Stats  ·  Standings  ◈  "
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PLAYER STATS TABLE COLUMNS  (header, width, alignment)
@@ -217,21 +218,21 @@ SPORT_LADDER_COLS: Dict[str, List[Tuple[str, int, str]]] = {
 CP: Dict[str, int] = {}
 
 _COLOR_DEFS = [
-    ("header",      curses.COLOR_WHITE,  curses.COLOR_BLUE),
-    ("selected",    curses.COLOR_BLACK,  curses.COLOR_YELLOW),
-    ("live_badge",  curses.COLOR_WHITE,  curses.COLOR_RED),
-    ("upcoming_b",  curses.COLOR_BLACK,  curses.COLOR_GREEN),
-    ("logo",        curses.COLOR_CYAN,   -1),
-    ("col_hdr",     curses.COLOR_BLACK,  curses.COLOR_WHITE),
-    ("positive",    curses.COLOR_GREEN,  -1),
-    ("negative",    curses.COLOR_RED,    -1),
-    ("score_away",  curses.COLOR_CYAN,   -1),
-    ("score_home",  curses.COLOR_GREEN,  -1),
-    ("status_bar",  curses.COLOR_BLACK,  curses.COLOR_WHITE),
-    ("section",     curses.COLOR_YELLOW, curses.COLOR_BLUE),
-    ("final_badge", curses.COLOR_WHITE,  curses.COLOR_BLACK),
-    ("accent",      curses.COLOR_YELLOW, -1),
-    ("score_box",   curses.COLOR_WHITE,  curses.COLOR_BLUE),
+    ("header",      curses.COLOR_BLACK,  curses.COLOR_CYAN),    # top nav bars
+    ("selected",    curses.COLOR_BLACK,  curses.COLOR_YELLOW),   # highlighted row
+    ("live_badge",  curses.COLOR_WHITE,  curses.COLOR_RED),      # ● LIVE
+    ("upcoming_b",  curses.COLOR_BLACK,  curses.COLOR_GREEN),    # UPCOMING
+    ("logo",        curses.COLOR_CYAN,   -1),                    # ASCII art
+    ("col_hdr",     curses.COLOR_BLACK,  curses.COLOR_WHITE),    # table headers
+    ("positive",    curses.COLOR_GREEN,  -1),                    # rank-up / +diff
+    ("negative",    curses.COLOR_RED,    -1),                    # rank-down / -diff
+    ("away_col",    curses.COLOR_CYAN,   -1),                    # away team / score
+    ("home_col",    curses.COLOR_GREEN,  -1),                    # home team / score
+    ("status_bar",  curses.COLOR_BLACK,  curses.COLOR_WHITE),    # bottom status
+    ("section",     curses.COLOR_YELLOW, -1),                    # ladder group hdr
+    ("final_badge", curses.COLOR_WHITE,  -1),                    # FINAL (no bg)
+    ("accent",      curses.COLOR_YELLOW, -1),                    # highlights
+    ("box_border",  curses.COLOR_CYAN,   -1),                    # score box border
     ("dim",         curses.COLOR_WHITE,  -1),
 ]
 
@@ -894,7 +895,9 @@ class App:
     def _bg_loop(self) -> None:
         while self._running:
             self._fetch()
-            self._wake.wait(timeout=REFRESH_INTERVAL)
+            live = (self.state == "game_detail"
+                    and self.game_header.get("state") == "in")
+            self._wake.wait(timeout=LIVE_REFRESH if live else REFRESH_INTERVAL)
             self._wake.clear()
 
     def _scoreboard_params(self) -> Dict:
@@ -1078,39 +1081,50 @@ class App:
     def _sport_select(self) -> None:
         h, w = self.scr.getmaxyx()
         logo_w  = max(len(line) for line in LOGO)
-        block_h = len(LOGO) + 2 + 2 + len(SPORTS) * 2 + 2
+        block_h = len(LOGO) + 1 + 1 + 1 + len(SPORTS) + 2
         sy      = max(1, (h - block_h) // 2)
         lx      = max(0, (w - logo_w) // 2)
         for i, line in enumerate(LOGO):
             self._add(sy + i, lx, line, cp("logo", bold=True))
-        ty = sy + len(LOGO) + 1
-        self._add_center(ty, TAGLINE, curses.A_DIM)
+
+        ty = sy + len(LOGO)
+        self._add_center(ty, TAGLINE, cp("accent"))
+
         div_y = ty + 2
-        self._add_center(div_y, "─" * min(50, w - 4), curses.A_DIM)
-        list_y = div_y + 2
-        list_w = 38
-        list_x = max(0, (w - list_w) // 2)
+        self._add_center(div_y,
+            "─────────────  SELECT SPORT  ─────────────", cp("dim"))
+
+        SPORT_ICONS = {"nba": "🏀", "nhl": "🏒", "afl": "🏉", "nfl": "🏈"}
+        list_y  = div_y + 2
+        list_w  = 32
+        list_x  = max(0, (w - list_w) // 2)
+
         for i, sport in enumerate(SPORTS):
-            y   = list_y + i * 2
-            sel = (i == self.sport_idx)
+            y    = list_y + i
+            sel  = (i == self.sport_idx)
+            icon = SPORT_ICONS.get(sport["id"], "  ")
             if sel:
-                self._hline(y, list_x - 1, ord(" "), list_w + 2, cp("selected"))
-                arrow, row_attr = "►", cp("selected", bold=True)
+                self._hline(y, list_x - 2, ord(" "), list_w + 4, cp("selected"))
+                label_attr = cp("selected", bold=True)
+                pfx = " ▶  "
             else:
-                arrow, row_attr = " ", curses.A_NORMAL
-            self._add(y, list_x, f" {arrow} {sport['label']}", row_attr)
-        self._add_center(h - 3, "  ↑↓ Navigate   ↵ Select   q Quit  ", curses.A_DIM)
+                label_attr = curses.A_NORMAL
+                pfx = "    "
+            self._add(y, list_x, f"{pfx}{icon}  {sport['label']}", label_attr)
+
+        self._add_center(h - 3, "  ↑↓  Navigate    ↵  Select    q  Quit  ",
+                         curses.A_DIM)
 
     # ── Screen: Game List ─────────────────────────────────────────────────────
 
     def _game_list(self) -> None:
         h, w = self.scr.getmaxyx()
-        sport_label  = self.current_sport.upper()
-        round_label  = self._round_label()
-        nav_hint     = " ← P    F → "
-        title        = f"{sport_label}  ·  {round_label}"
+        sport_label = self.current_sport.upper()
+        round_label = self._round_label()
+        nav_hint    = " ← P    F → "
+        title       = f"  {sport_label}  ·  {round_label}"
         self._bar(0, title, cp("header", bold=True))
-        self._add(0, w - len(nav_hint) - 1, nav_hint, cp("header"))
+        self._add(0, w - len(nav_hint) - 1, nav_hint, cp("header", bold=True))
 
         with self._lock:
             games = list(self.games)
@@ -1120,9 +1134,9 @@ class App:
         upcoming = [g for g in games if g["status"] == "upcoming"]
         final    = [g for g in games if g["status"] == "final"]
         sections = [
-            (live,     "● LIVE",     "live_badge"),
-            (upcoming, "  UPCOMING", "upcoming_b"),
-            (final,    "  FINAL",    "final_badge"),
+            (live,     "  ● LIVE",     "live_badge"),
+            (upcoming, "  UPCOMING",   "upcoming_b"),
+            (final,    "  FINAL",      "col_hdr"),
         ]
 
         if not flat:
@@ -1132,8 +1146,8 @@ class App:
                 self._add_center(h // 2 - 1,
                     f"No {sport_label} games  ·  {round_label}", curses.A_DIM)
                 self._add_center(h // 2,
-                    "Press P / F to navigate rounds,  r to refresh", curses.A_DIM)
-                self._add_center(h // 2 + 1, "L  →  View standings ladder", curses.A_DIM)
+                    "  P / F  navigate rounds    r  refresh  ", curses.A_DIM)
+                self._add_center(h // 2 + 1, "  L  →  view standings  ", curses.A_DIM)
             return
 
         self.game_idx = max(0, min(self.game_idx, len(flat) - 1))
@@ -1148,32 +1162,42 @@ class App:
             if not glist:
                 continue
             if row_abs >= self.game_scroll and y < h - 2:
-                self._bar(y, label, cp(badge_key, bold=True))
+                self._fill_row(y, cp(badge_key))
+                self._add(y, 0, label, cp(badge_key, bold=True))
                 y += 1
             row_abs += 1
             for g in glist:
                 if y >= h - 2:
                     break
                 if row_abs >= self.game_scroll:
-                    sel      = (flat_i == self.game_idx)
-                    row_attr = cp("selected", bold=True) if sel else curses.A_NORMAL
+                    sel = (flat_i == self.game_idx)
                     if sel:
                         self._fill_row(y, cp("selected"))
-                    pfx  = " ► " if sel else "   "
+                        pfx      = " ▶ "
+                        row_attr = cp("selected", bold=True)
+                    else:
+                        pfx      = "   "
+                        row_attr = curses.A_NORMAL
+
                     a_sc = g["away_score"]
                     h_sc = g["home_score"]
                     if g["status"] == "live":
-                        line = (f"{pfx}{g['away_abbrev']:>4}  "
-                                f"{a_sc:>12} - {h_sc:<12}"
-                                f"  {g['home_abbrev']:<4}   {g['period']} {g['clock']}")
+                        left  = f"{pfx}{g['away_abbrev']:>4}"
+                        mid   = f"{a_sc:>10}  –  {h_sc:<10}"
+                        right = f"{g['home_abbrev']:<4}   {g['period']} {g['clock']}"
                     elif g["status"] == "final":
-                        line = (f"{pfx}{g['away_abbrev']:>4}  "
-                                f"{a_sc:>12} - {h_sc:<12}"
-                                f"  {g['home_abbrev']:<4}   FINAL")
+                        left  = f"{pfx}{g['away_abbrev']:>4}"
+                        mid   = f"{a_sc:>10}  –  {h_sc:<10}"
+                        right = f"{g['home_abbrev']:<4}   FINAL"
                     else:
-                        line = (f"{pfx}{g['away_abbrev']:>4}  vs  {g['home_abbrev']:<4}"
-                                f"   {g['detail']}")
-                    self._add(y, 0, line, row_attr)
+                        left  = f"{pfx}{g['away_abbrev']:>4}"
+                        mid   = f"{'vs':^24}"
+                        right = f"{g['home_abbrev']:<4}   {g['detail']}"
+
+                    self._add(y, 0, left,  row_attr)
+                    self._add(y, len(left), mid,  row_attr)
+                    self._add(y, len(left) + len(mid), right, row_attr)
+
                     if g["status"] == "live" and not sel:
                         self._add(y, 1, "●", cp("live_badge", bold=True))
                     y += 1
@@ -1214,7 +1238,8 @@ class App:
                 break
             # Group header
             if row_abs >= self.ladder_scroll:
-                self._bar(y, f"  {group['name'].upper()}", cp("section", bold=True))
+                self._add(y, 0, f"  ── {group['name'].upper()} ──",
+                          cp("section", bold=True))
                 y += 1
             row_abs += 1
 
@@ -1339,81 +1364,95 @@ class App:
                     "No data available — press r to retry", curses.A_DIM)
             return
 
-        # ── Top header bar ────────────────────────────────────────────────
-        state = header.get("state", "pre")
-        if state == "in":
-            state_tag = f"  ● LIVE  {header['period']}  {header['clock']}"
-            tag_attr  = cp("live_badge", bold=True)
-        elif state == "post":
-            state_tag = "  FINAL"
-            tag_attr  = cp("final_badge", bold=True)
-        else:
-            state_tag = f"  {header.get('detail', 'Upcoming')}"
-            tag_attr  = cp("upcoming_b", bold=True)
+        state       = header.get("state", "pre")
+        away_abbrev = header.get("away_abbrev", "AWY")
+        home_abbrev = header.get("home_abbrev", "HOM")
+        away_name   = header.get("away_name", away_abbrev)
+        home_name   = header.get("home_name", home_abbrev)
 
-        title = f"  {header['away_abbrev']} @ {header['home_abbrev']}"
+        # ── Top header bar (just team nav, no duplicate clock) ────────────
+        back_hint = "  q  Back  "
+        title     = f"  {away_abbrev}  @  {home_abbrev}  ·  {sport.upper()}"
         self._bar(0, title, cp("header", bold=True))
-        self._add(0, w - len(state_tag) - 2, state_tag, tag_attr)
+        self._add(0, w - len(back_hint) - 1, back_hint, cp("header"))
 
-        # ── Score box (rows 1–7) ──────────────────────────────────────────
-        BOX_H    = 7
-        box_attr = cp("score_box")
-        for row in range(1, BOX_H + 1):
-            self._fill_row(row, box_attr)
-        mid = w // 2
-
-        away_name = header.get("away_name", header.get("away_abbrev", "")).upper()
-        home_name = header.get("home_name", header.get("home_abbrev", "")).upper()
-        max_name  = min(26, (w - 8) // 2)
-
-        # AFL: show G.B.Total if available
+        # ── Score box (rows 1–5, no background fill) ──────────────────────
+        # AFL: Goals.Behinds.Total
         if sport == "afl":
-            ag, ab_val = header.get("away_goals"), header.get("away_behinds")
-            hg, hb_val = header.get("home_goals"), header.get("home_behinds")
-            away_score = (f"{ag}.{ab_val}.{header['away_score']}"
-                          if ag and ab_val else str(header.get("away_score", "0")))
-            home_score = (f"{hg}.{hb_val}.{header['home_score']}"
-                          if hg and hb_val else str(header.get("home_score", "0")))
+            ag, ab_v = header.get("away_goals"), header.get("away_behinds")
+            hg, hb_v = header.get("home_goals"), header.get("home_behinds")
+            away_score = (f"{ag}.{ab_v}.{header['away_score']}"
+                          if ag and ab_v else str(header.get("away_score", "0")))
+            home_score = (f"{hg}.{hb_v}.{header['home_score']}"
+                          if hg and hb_v else str(header.get("home_score", "0")))
         else:
             away_score = str(header.get("away_score", "0"))
             home_score = str(header.get("home_score", "0"))
 
-        # Team names (row 2)
-        self._add(2, max(2, mid - len(away_name[:max_name]) - 4),
-                  away_name[:max_name], box_attr | curses.A_BOLD)
-        self._add(2, mid - 1, "vs", box_attr | curses.A_BOLD)
-        self._add(2, mid + 3, home_name[:max_name], box_attr | curses.A_BOLD)
-
-        # Scores (row 4)
-        self._add(4, max(2, mid - len(away_score) - 4), away_score,
-                  cp("score_away", bold=True))
-        self._add(4, mid - 1, "●", box_attr)
-        self._add(4, mid + 3, home_score, cp("score_home", bold=True))
-
-        # Clock (row 6)
+        # Build status line
         if state == "in":
-            clk = f"  {header['period']}   {header['clock']} remaining  "
+            status_line = f"  ●  {header['period']}   {header['clock']}  "
+            status_attr = cp("live_badge", bold=True)
         elif state == "post":
-            clk = "  F I N A L  "
+            status_line = "  FULL TIME  "
+            status_attr = curses.A_BOLD
         else:
-            clk = f"  {header.get('detail', '')}  "
-        self._add_center(6, clk, box_attr | curses.A_BOLD)
+            status_line = f"  {header.get('detail', 'Upcoming')}  "
+            status_attr = curses.A_DIM
 
-        # ── Team filter tabs + divider ────────────────────────────────────
-        away_abbrev = header.get("away_abbrev", "AWY")
-        home_abbrev = header.get("home_abbrev", "HOM")
-        tab_labels  = ["All Players", away_abbrev, home_abbrev]
-        div_y = BOX_H + 1
-        self._add(div_y, 0, "─" * (w - 1), curses.A_DIM)
+        # Decide how much name to show
+        max_name = min(22, max(8, (w - 24) // 2))
+        away_disp = away_name[:max_name].upper()
+        home_disp = home_name[:max_name].upper()
+        mid       = w // 2
+
+        # Draw border rows
+        border_attr = cp("box_border")
+        box_w       = min(w - 2, 80)
+        bx          = max(0, (w - box_w) // 2)
+        self._add(1, bx,
+            "┌" + "─" * (box_w - 2) + "┐", border_attr)
+        self._add(5, bx,
+            "└" + "─" * (box_w - 2) + "┘", border_attr)
+        for row in (2, 3, 4):
+            self._add(row, bx,     "│", border_attr)
+            self._add(row, bx + box_w - 1, "│", border_attr)
+
+        # Row 2: team names
+        self._add(2, max(bx + 2, mid - len(away_disp) - 5),
+                  away_disp, cp("away_col", bold=True))
+        self._add_center(2, "vs", curses.A_DIM)
+        self._add(2, min(bx + box_w - len(home_disp) - 2, mid + 4),
+                  home_disp, cp("home_col", bold=True))
+
+        # Row 3: scores — large and prominent
+        self._add(3, max(bx + 2, mid - len(away_score) - 6),
+                  away_score, cp("away_col", bold=True) | curses.A_BOLD)
+        self._add_center(3, "─", curses.A_DIM)
+        self._add(3, min(bx + box_w - len(home_score) - 2, mid + 4),
+                  home_score, cp("home_col", bold=True) | curses.A_BOLD)
+
+        # Row 4: status / clock
+        self._add_center(4, status_line, status_attr)
+
+        # ── Team filter tabs ──────────────────────────────────────────────
+        tab_labels = ["All Players", away_abbrev, home_abbrev]
+        tab_y = 6
+        self._add(tab_y, 0, "─" * max(0, w - 1), curses.A_DIM)
+
         tab_x = 2
         for i, label in enumerate(tab_labels):
             if i == self.team_filter:
-                ts, ta = f"[ {label} ]", cp("selected", bold=True)
+                ts = f" {label} "
+                self._add(tab_y, tab_x - 1, "│", curses.A_DIM)
+                self._add(tab_y, tab_x, ts, cp("accent", bold=True))
+                self._add(tab_y, tab_x + len(ts), "│", curses.A_DIM)
+                tab_x += len(ts) + 2
             else:
-                ts, ta = f"  {label}  ", curses.A_DIM
-            self._add(div_y, tab_x, ts, ta)
-            tab_x += len(ts) + 1
-        self._add(div_y, w - 17, "⇥ Tab to switch", curses.A_DIM)
+                ts = f" {label} "
+                self._add(tab_y, tab_x, ts, curses.A_DIM)
+                tab_x += len(ts) + 1
+        self._add(tab_y, w - 16, "⇥  tab filter", curses.A_DIM)
 
         # ── Apply team filter ─────────────────────────────────────────────
         if self.team_filter == 1:
@@ -1429,7 +1468,7 @@ class App:
             self.player_scroll = 0
 
         # ── Column headers ────────────────────────────────────────────────
-        col_hdr_y = div_y + 1
+        col_hdr_y = tab_y + 1
         self._fill_row(col_hdr_y, cp("col_hdr"))
         col_x = 1; col_positions: List[int] = []
         for cname, cw, align in table_cols:
