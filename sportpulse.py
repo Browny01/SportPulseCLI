@@ -215,34 +215,68 @@ def parse_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
         for stats_block in team_block.get("statistics", []):
             names = [n.upper() for n in stats_block.get("names", [])]
             for ab in stats_block.get("athletes", []):
-                if not ab.get("active", True):
-                    continue
                 raw = ab.get("stats", [])
-                if not raw:
-                    continue
-                sm  = dict(zip(names, raw))
+                sm  = dict(zip(names, raw)) if raw else {}
                 ath = ab.get("athlete", {})
+
+                # Determine play status
+                raw_min = sm.get("MIN", "0")
+                # A player who did not play has "0:00", "0", or no minutes
+                did_not_play = (
+                    not raw_min
+                    or raw_min in ("0", "0:00")
+                    or (not raw and ab.get("didNotPlay", False))
+                )
+                reason = ab.get("reason", "")
+                # Normalise common ESPN reason strings into concise labels
+                if reason:
+                    reason_upper = reason.upper()
+                    if "INJURY" in reason_upper or "INJURED" in reason_upper:
+                        status_label = "INJ"
+                    elif "SUSPENSION" in reason_upper or "SUSPENDED" in reason_upper:
+                        status_label = "SUSP"
+                    elif "ILLNESS" in reason_upper:
+                        status_label = "ILL"
+                    elif "REST" in reason_upper:
+                        status_label = "REST"
+                    elif "NOT WITH TEAM" in reason_upper or "PERSONAL" in reason_upper:
+                        status_label = "AWAY"
+                    elif did_not_play:
+                        status_label = "DNP"
+                    else:
+                        status_label = ""
+                elif did_not_play:
+                    status_label = "DNP"
+                else:
+                    status_label = ""
+
                 players.append({
-                    "name":    ath.get("displayName", "Unknown"),
-                    "pos":     ath.get("position", {}).get("abbreviation", ""),
-                    "team":    abbrev,
-                    "starter": ab.get("starter", False),
-                    "min":     sm.get("MIN", "0"),
-                    "pts":     _int(sm.get("PTS", "0")),
-                    "reb":     _int(sm.get("REB", "0")),
-                    "ast":     _int(sm.get("AST", "0")),
-                    "stl":     _int(sm.get("STL", "0")),
-                    "blk":     _int(sm.get("BLK", "0")),
-                    "to":      _int(sm.get("TO",  "0")),
-                    "pf":      _int(sm.get("PF",  "0")),
-                    "fg":      sm.get("FG",  "0-0"),
-                    "fg3":     sm.get("3PT", "0-0"),
-                    "ft":      sm.get("FT",  "0-0"),
-                    "pm":      sm.get("+/-", "0"),
+                    "name":         ath.get("displayName", "Unknown"),
+                    "pos":          ath.get("position", {}).get("abbreviation", ""),
+                    "team":         abbrev,
+                    "starter":      ab.get("starter", False),
+                    "did_not_play": did_not_play,
+                    "status_label": status_label,
+                    "reason":       reason,
+                    "min":          raw_min if not did_not_play else "0:00",
+                    "pts":          _int(sm.get("PTS", "0")),
+                    "reb":          _int(sm.get("REB", "0")),
+                    "ast":          _int(sm.get("AST", "0")),
+                    "stl":          _int(sm.get("STL", "0")),
+                    "blk":          _int(sm.get("BLK", "0")),
+                    "to":           _int(sm.get("TO",  "0")),
+                    "pf":           _int(sm.get("PF",  "0")),
+                    "fg":           sm.get("FG",  "0-0"),
+                    "fg3":          sm.get("3PT", "0-0"),
+                    "ft":           sm.get("FT",  "0-0"),
+                    "pm":           sm.get("+/-", "0"),
                 })
 
-    players.sort(key=lambda p: (p["pts"], p["ast"], p["reb"]), reverse=True)
-    return game_header, players
+    # Active players sorted by PTS desc; DNP players appended at the bottom
+    active  = [p for p in players if not p["did_not_play"]]
+    inactive = [p for p in players if p["did_not_play"]]
+    active.sort(key=lambda p: (p["pts"], p["ast"], p["reb"]), reverse=True)
+    return game_header, active + inactive
 
 
 def _flatten_games(games: List[Dict]) -> List[Dict]:
@@ -269,6 +303,7 @@ class App:
         self.game_idx      = 0
         self.game_scroll   = 0   # top row of visible game list window
         self.player_scroll = 0
+        self.team_filter   = 0   # 0=All, 1=Away team, 2=Home team
 
         # Data
         self.games:        List[Dict]      = []
@@ -331,6 +366,10 @@ class App:
                 self._on_enter()
             elif key == ord("r"):
                 self._wake.set()
+            elif key == ord("\t"):   # TAB — cycle team filter in game detail
+                if self.state == "game_detail":
+                    self.team_filter   = (self.team_filter + 1) % 3
+                    self.player_scroll = 0
 
         self._running = False
         self._wake.set()
@@ -378,6 +417,7 @@ class App:
                     self.rank_changes = {}
                     self._prev_ranks  = {}
                 self.player_scroll = 0
+                self.team_filter   = 0
                 self.state = "game_detail"
                 self._wake.set()
 
@@ -497,7 +537,7 @@ class App:
             parts.append(self.fetch_error)
 
         left  = "  ".join(parts)
-        right = " ↑↓ Navigate  ↵ Select  q Back  r Refresh "
+        right = " ↑↓ Navigate  ↵ Select  ⇥ Filter  q Back  r Refresh "
         try:
             self.scr.addstr(y, 1, left[: max(1, w - len(right) - 2)], attr)
             self.scr.addstr(y, max(1, w - len(right)), right[: w - 1], attr)
@@ -749,10 +789,42 @@ class App:
             clk = f"  {header.get('detail', '')}  "
         self._add_center(6, clk, box_attr | curses.A_BOLD)
 
-        # ── Divider ───────────────────────────────────────────────────────
+        # ── Team filter tabs + divider ────────────────────────────────────
+        away_abbrev = header.get("away_abbrev", "AWY")
+        home_abbrev = header.get("home_abbrev", "HOM")
+        tab_labels  = ["All Players", away_abbrev, home_abbrev]
+
         div_y = BOX_H + 1
         self._add(div_y, 0, "─" * (w - 1), curses.A_DIM)
-        self._add(div_y, 2, " PLAYER STATISTICS ", cp("accent", bold=True))
+
+        # Tab bar — drawn in the divider row after the line
+        tab_x = 2
+        for i, label in enumerate(tab_labels):
+            if i == self.team_filter:
+                tab_str  = f"[ {label} ]"
+                tab_attr = cp("selected", bold=True)
+            else:
+                tab_str  = f"  {label}  "
+                tab_attr = curses.A_DIM
+            self._add(div_y, tab_x, tab_str, tab_attr)
+            tab_x += len(tab_str) + 1
+
+        hint = "⇥ Tab to switch"
+        self._add(div_y, w - len(hint) - 2, hint, curses.A_DIM)
+
+        # ── Apply team filter ─────────────────────────────────────────────
+        if self.team_filter == 1:
+            visible_players = [p for p in players if p["team"] == away_abbrev]
+        elif self.team_filter == 2:
+            visible_players = [p for p in players if p["team"] == home_abbrev]
+        else:
+            visible_players = players
+
+        # Re-clamp scroll against filtered list
+        if visible_players:
+            self.player_scroll = max(0, min(self.player_scroll, len(visible_players) - 1))
+        else:
+            self.player_scroll = 0
 
         # ── Column headers ────────────────────────────────────────────────
         col_hdr_y = div_y + 1
@@ -773,15 +845,15 @@ class App:
         table_rows = max(1, h - data_top - 2)
         start      = self.player_scroll
 
-        for i, player in enumerate(players[start: start + table_rows]):
+        for i, player in enumerate(visible_players[start: start + table_rows]):
             ry   = data_top + i
             rank = start + i + 1
+            dnp  = player.get("did_not_play", False)
 
-            # Alternating row shade
-            row_attr = curses.A_NORMAL
+            row_attr = curses.A_DIM if dnp else curses.A_NORMAL
 
-            # Rank-change arrow
-            chg = changes.get(player["name"], 0)
+            # Rank-change arrow (only meaningful for active players)
+            chg = changes.get(player["name"], 0) if not dnp else 0
             if chg > 0:
                 chg_str, chg_attr = "↑", cp("positive", bold=True)
             elif chg < 0:
@@ -789,48 +861,63 @@ class App:
             else:
                 chg_str, chg_attr = " ", row_attr
 
-            # +/- colour
-            try:
-                pm_n = int(str(player["pm"]).replace("+", ""))
-                if pm_n > 0:
-                    pm_str, pm_attr = f"+{pm_n}", cp("positive")
-                elif pm_n < 0:
-                    pm_str, pm_attr = str(pm_n), cp("negative")
-                else:
-                    pm_str, pm_attr = "0", row_attr
-            except (ValueError, TypeError):
-                pm_str, pm_attr = str(player["pm"]), row_attr
+            if dnp:
+                # DNP row: show name, team, pos, then status label spanning stats
+                status = player.get("status_label", "DNP") or "DNP"
+                cells = [
+                    (str(rank).rjust(3),                   row_attr),
+                    (" ",                                   row_attr),
+                    (player["name"][:22].ljust(22),         row_attr),
+                    (player["team"][:4].ljust(4),           row_attr),
+                    (player["pos"][:3].center(3),           row_attr),
+                    (status.center(5),                      cp("negative")),
+                    ("",  row_attr), ("",  row_attr), ("",  row_attr),
+                    ("",  row_attr), ("",  row_attr), ("",  row_attr),
+                    ("",  row_attr), ("",  row_attr), ("",  row_attr),
+                ]
+            else:
+                # +/- colour
+                try:
+                    pm_n = int(str(player["pm"]).replace("+", ""))
+                    if pm_n > 0:
+                        pm_str, pm_attr = f"+{pm_n}", cp("positive")
+                    elif pm_n < 0:
+                        pm_str, pm_attr = str(pm_n), cp("negative")
+                    else:
+                        pm_str, pm_attr = "0", row_attr
+                except (ValueError, TypeError):
+                    pm_str, pm_attr = str(player["pm"]), row_attr
 
-            # Points get bold treatment for top scorers
-            pts_attr = (row_attr | curses.A_BOLD) if player["pts"] >= 20 else row_attr
+                pts_attr = (row_attr | curses.A_BOLD) if player["pts"] >= 20 else row_attr
 
-            cells = [
-                (str(rank).rjust(3),                   row_attr),
-                (chg_str,                               chg_attr),
-                (player["name"][:22].ljust(22),         row_attr | curses.A_BOLD),
-                (player["team"][:4].ljust(4),           row_attr),
-                (player["pos"][:3].center(3),           row_attr),
-                (player["min"][:5].rjust(5),            row_attr),
-                (str(player["pts"]).rjust(4),           pts_attr),
-                (str(player["reb"]).rjust(4),           row_attr),
-                (str(player["ast"]).rjust(4),           row_attr),
-                (str(player["stl"]).rjust(3),           row_attr),
-                (str(player["blk"]).rjust(3),           row_attr),
-                (player["fg"][:7].center(7),            row_attr),
-                (player["fg3"][:7].center(7),           row_attr),
-                (player["ft"][:6].center(6),            row_attr),
-                (pm_str[:4].rjust(4),                   pm_attr),
-            ]
+                cells = [
+                    (str(rank).rjust(3),                   row_attr),
+                    (chg_str,                               chg_attr),
+                    (player["name"][:22].ljust(22),         row_attr | curses.A_BOLD),
+                    (player["team"][:4].ljust(4),           row_attr),
+                    (player["pos"][:3].center(3),           row_attr),
+                    (player["min"][:5].rjust(5),            row_attr),
+                    (str(player["pts"]).rjust(4),           pts_attr),
+                    (str(player["reb"]).rjust(4),           row_attr),
+                    (str(player["ast"]).rjust(4),           row_attr),
+                    (str(player["stl"]).rjust(3),           row_attr),
+                    (str(player["blk"]).rjust(3),           row_attr),
+                    (player["fg"][:7].center(7),            row_attr),
+                    (player["fg3"][:7].center(7),           row_attr),
+                    (player["ft"][:6].center(6),            row_attr),
+                    (pm_str[:4].rjust(4),                   pm_attr),
+                ]
 
             for (_, cw, _), (val, vattr), cx in zip(TABLE_COLS, cells, col_positions):
                 self._add(ry, cx, val[:cw], vattr)
 
         # Scroll indicator
-        if players and len(players) > table_rows:
-            shown_end = min(start + table_rows, len(players))
-            pct = int(100 * start / max(1, len(players) - table_rows))
+        total = len(visible_players)
+        if total > table_rows:
+            shown_end = min(start + table_rows, total)
+            pct = int(100 * start / max(1, total - table_rows))
             scroll_msg = (
-                f" ↑↓ Scroll  rows {start + 1}–{shown_end} of {len(players)}"
+                f" ↑↓ Scroll  rows {start + 1}–{shown_end} of {total}"
                 f"  ({pct}%) "
             )
             self._add(h - 2, 1, scroll_msg, curses.A_DIM)
