@@ -41,6 +41,55 @@ KAYO_URLS: Dict[str, str] = {
     "nfl": "https://kayosports.com.au/sport/nfl",
 }
 
+TEAM_COLORS: Dict[str, Dict[str, int]] = {
+    "nba": {
+        "ATL": curses.COLOR_RED,    "BOS": curses.COLOR_GREEN,  "BKN": curses.COLOR_WHITE,
+        "CHA": curses.COLOR_CYAN,   "CHI": curses.COLOR_RED,    "CLE": curses.COLOR_RED,
+        "DAL": curses.COLOR_BLUE,   "DEN": curses.COLOR_YELLOW, "DET": curses.COLOR_RED,
+        "GSW": curses.COLOR_YELLOW, "HOU": curses.COLOR_RED,    "IND": curses.COLOR_YELLOW,
+        "LAC": curses.COLOR_RED,    "LAL": curses.COLOR_MAGENTA,"MEM": curses.COLOR_BLUE,
+        "MIA": curses.COLOR_RED,    "MIL": curses.COLOR_GREEN,  "MIN": curses.COLOR_GREEN,
+        "NOP": curses.COLOR_YELLOW, "NYK": curses.COLOR_BLUE,   "OKC": curses.COLOR_BLUE,
+        "ORL": curses.COLOR_BLUE,   "PHI": curses.COLOR_BLUE,   "PHX": curses.COLOR_MAGENTA,
+        "POR": curses.COLOR_RED,    "SAC": curses.COLOR_MAGENTA,"SAS": curses.COLOR_WHITE,
+        "TOR": curses.COLOR_RED,    "UTA": curses.COLOR_YELLOW, "WAS": curses.COLOR_RED,
+    },
+    "nhl": {
+        "ANA": curses.COLOR_YELLOW, "ARI": curses.COLOR_RED,    "BOS": curses.COLOR_YELLOW,
+        "BUF": curses.COLOR_BLUE,   "CAR": curses.COLOR_RED,    "CBJ": curses.COLOR_BLUE,
+        "CGY": curses.COLOR_RED,    "CHI": curses.COLOR_RED,    "COL": curses.COLOR_MAGENTA,
+        "DAL": curses.COLOR_GREEN,  "DET": curses.COLOR_RED,    "EDM": curses.COLOR_YELLOW,
+        "FLA": curses.COLOR_RED,    "LA":  curses.COLOR_YELLOW, "MIN": curses.COLOR_GREEN,
+        "MTL": curses.COLOR_RED,    "NJ":  curses.COLOR_RED,    "NSH": curses.COLOR_YELLOW,
+        "NYI": curses.COLOR_BLUE,   "NYR": curses.COLOR_BLUE,   "OTT": curses.COLOR_RED,
+        "PHI": curses.COLOR_YELLOW, "PIT": curses.COLOR_YELLOW, "SEA": curses.COLOR_CYAN,
+        "SJS": curses.COLOR_CYAN,   "STL": curses.COLOR_BLUE,   "TB":  curses.COLOR_BLUE,
+        "TOR": curses.COLOR_BLUE,   "UTA": curses.COLOR_CYAN,   "VAN": curses.COLOR_BLUE,
+        "VGK": curses.COLOR_YELLOW, "WSH": curses.COLOR_RED,    "WPG": curses.COLOR_BLUE,
+    },
+    "afl": {
+        "ADE": curses.COLOR_RED,    "BL":  curses.COLOR_BLUE,   "CARL": curses.COLOR_BLUE,
+        "COLL": curses.COLOR_WHITE, "ESS": curses.COLOR_RED,    "FRE": curses.COLOR_MAGENTA,
+        "GC":  curses.COLOR_YELLOW, "GEE": curses.COLOR_BLUE,   "GWS": curses.COLOR_YELLOW,
+        "HAW": curses.COLOR_YELLOW, "MELB": curses.COLOR_RED,   "NM":  curses.COLOR_BLUE,
+        "PA":  curses.COLOR_CYAN,   "RICH": curses.COLOR_YELLOW,"STK": curses.COLOR_RED,
+        "SYD": curses.COLOR_RED,    "WB":  curses.COLOR_RED,    "WCE": curses.COLOR_BLUE,
+    },
+    "nfl": {
+        "ARI": curses.COLOR_RED,    "ATL": curses.COLOR_RED,    "BAL": curses.COLOR_MAGENTA,
+        "BUF": curses.COLOR_BLUE,   "CAR": curses.COLOR_CYAN,   "CHI": curses.COLOR_BLUE,
+        "CIN": curses.COLOR_YELLOW, "CLE": curses.COLOR_YELLOW, "DAL": curses.COLOR_BLUE,
+        "DEN": curses.COLOR_YELLOW, "DET": curses.COLOR_BLUE,   "GB":  curses.COLOR_GREEN,
+        "HOU": curses.COLOR_RED,    "IND": curses.COLOR_BLUE,   "JAX": curses.COLOR_CYAN,
+        "KC":  curses.COLOR_RED,    "LA":  curses.COLOR_YELLOW, "LAC": curses.COLOR_YELLOW,
+        "LV":  curses.COLOR_WHITE,  "MIA": curses.COLOR_CYAN,   "MIN": curses.COLOR_MAGENTA,
+        "NE":  curses.COLOR_BLUE,   "NO":  curses.COLOR_YELLOW, "NYG": curses.COLOR_BLUE,
+        "NYJ": curses.COLOR_GREEN,  "PHI": curses.COLOR_GREEN,  "PIT": curses.COLOR_YELLOW,
+        "SEA": curses.COLOR_GREEN,  "SF":  curses.COLOR_RED,    "TB":  curses.COLOR_RED,
+        "TEN": curses.COLOR_BLUE,   "WAS": curses.COLOR_RED,
+    },
+}
+
 SPORT_PATHS: Dict[str, str] = {
     "nba": "basketball/nba",
     "nhl": "hockey/nhl",
@@ -243,6 +292,13 @@ _COLOR_DEFS = [
     ("accent",      curses.COLOR_YELLOW, -1),                    # highlights
     ("box_border",  curses.COLOR_CYAN,   -1),                    # score box border
     ("dim",         curses.COLOR_WHITE,  -1),
+    ("tc_red",     curses.COLOR_RED,     -1),
+    ("tc_green",   curses.COLOR_GREEN,   -1),
+    ("tc_yellow",  curses.COLOR_YELLOW,  -1),
+    ("tc_blue",    curses.COLOR_BLUE,    -1),
+    ("tc_magenta", curses.COLOR_MAGENTA, -1),
+    ("tc_cyan",    curses.COLOR_CYAN,    -1),
+    ("tc_white",   curses.COLOR_WHITE,   -1),
 ]
 
 
@@ -261,8 +317,22 @@ def cp(name: str, bold: bool = False, dim: bool = False) -> int:
     return attr
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HELPERS
+_TC_PAIR = {
+    curses.COLOR_RED:     "tc_red",
+    curses.COLOR_GREEN:   "tc_green",
+    curses.COLOR_YELLOW:  "tc_yellow",
+    curses.COLOR_BLUE:    "tc_blue",
+    curses.COLOR_MAGENTA: "tc_magenta",
+    curses.COLOR_CYAN:    "tc_cyan",
+    curses.COLOR_WHITE:   "tc_white",
+}
+
+def cp_team(sport: str, abbrev: str, bold: bool = False) -> int:
+    """Return a curses attribute for a team's brand colour."""
+    color = TEAM_COLORS.get(sport, {}).get(abbrev, curses.COLOR_WHITE)
+    return cp(_TC_PAIR.get(color, "dim"), bold=bold)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _int(s) -> int:
@@ -487,6 +557,7 @@ def parse_nba_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
                     "fg3":          sm.get("3PT", "0-0"),
                     "ft":           sm.get("FT",  "0-0"),
                     "pm":           sm.get("+/-", "0"),
+                    "athlete_id":   ath.get("id", ""),
                 })
     active   = [p for p in players if not p["did_not_play"]]
     inactive = [p for p in players if p["did_not_play"]]
@@ -526,6 +597,7 @@ def parse_nhl_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
                     "ht":           _int(sm.get("HT",  "0")),
                     "pim":          _int(sm.get("PIM", "0")),
                     "fopct":        sm.get("FO%", "-"),
+                    "athlete_id":   ath.get("id", ""),
                 })
     active   = [p for p in players if not p["did_not_play"]]
     inactive = [p for p in players if p["did_not_play"]]
@@ -563,6 +635,7 @@ def parse_afl_boxscore(data: Dict) -> Tuple[Dict, List[Dict]]:
                     "d":  d, "k":  k, "hb": hb, "m":  m, "t":  t,
                     "g":  g, "b":  b, "ho": ho, "i50": i50, "r50": r50,
                     "ff": ff, "fa": fa,
+                    "athlete_id":   ath.get("id", ""),
                 })
     active   = [p for p in players if not p["did_not_play"]]
     inactive = [p for p in players if p["did_not_play"]]
@@ -576,6 +649,7 @@ def _nfl_empty_player(name: str, team: str, ath: Dict) -> Dict:
         "team":         team,
         "did_not_play": False,
         "status_label": "",
+        "athlete_id":   ath.get("id", ""),
         "catt":  "0/0", "pyds": 0, "ptd":  0, "int_thrown": 0,
         "car":   0,     "ryds": 0, "rtd":  0,
         "rec":   0,     "wyds": 0, "wtd":  0,
@@ -640,6 +714,100 @@ _PARSE_BOXSCORE = {
     "afl": parse_afl_boxscore,
     "nfl": parse_nfl_boxscore,
 }
+
+
+def parse_timeline(data: Dict) -> List[Dict]:
+    """Extract scoring plays from ESPN summary data, most-recent first."""
+    plays = data.get("plays", []) if data else []
+    result = []
+    for p in plays:
+        if not p.get("scoringPlay"):
+            continue
+        period_val = p.get("period", {})
+        period_str = period_val.get("displayValue", "") if isinstance(period_val, dict) else str(period_val)
+        clock_val  = p.get("clock", {})
+        clock_str  = clock_val.get("displayValue", "") if isinstance(clock_val, dict) else str(clock_val)
+        team_obj   = p.get("team", {})
+        team_id    = team_obj.get("id", "") if isinstance(team_obj, dict) else ""
+        result.append({
+            "text":       p.get("text", ""),
+            "short_text": p.get("shortDescription", p.get("text", "")),
+            "period":     period_str,
+            "clock":      clock_str,
+            "away_score": str(p.get("awayScore", "")),
+            "home_score": str(p.get("homeScore", "")),
+            "team_id":    team_id,
+            "score_val":  p.get("scoreValue", 0),
+        })
+    result.reverse()  # most recent first
+    return result
+
+
+def parse_h2h(data: Dict) -> Dict:
+    """Extract head-to-head season series from ESPN summary data."""
+    series_list = data.get("seasonseries", []) if data else []
+    if not series_list:
+        return {}
+    s = series_list[0]
+    games = []
+    for ev in s.get("events", []):
+        comps = ev.get("competitors", [])
+        home = next((c for c in comps if c.get("homeAway") == "home"), {})
+        away = next((c for c in comps if c.get("homeAway") == "away"), {})
+        date_str = ev.get("date", "")
+        try:
+            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            date_fmt = dt.strftime("%b %-d")
+        except Exception:
+            date_fmt = date_str[:10]
+        games.append({
+            "date":        date_fmt,
+            "away_abbrev": away.get("team", {}).get("abbreviation", "AWY"),
+            "home_abbrev": home.get("team", {}).get("abbreviation", "HOM"),
+            "away_score":  str(away.get("score", "?")),
+            "home_score":  str(home.get("score", "?")),
+            "away_winner": away.get("winner", False),
+            "home_winner": home.get("winner", False),
+            "status":      ev.get("status", "post"),
+        })
+    return {
+        "summary":     s.get("summary", s.get("shortSummary", "")),
+        "description": s.get("description", ""),
+        "series_label": s.get("seriesLabel", ""),
+        "games":       games,
+    }
+
+
+# Season stats web API paths (different from scoreboard paths)
+_SEASON_STATS_BASE = "https://site.web.api.espn.com/apis/common/v3/sports"
+_SEASON_STATS_PATHS: Dict[str, str] = {
+    "nba": "basketball/nba",
+    "nhl": "hockey/nhl",
+    "afl": "australian-football/afl",
+    "nfl": "football/nfl",
+}
+
+def fetch_season_stats(sport: str, athlete_id: str) -> Optional[Dict]:
+    """Fetch a player's season averages. Returns parsed dict or None."""
+    path = _SEASON_STATS_PATHS.get(sport, "basketball/nba")
+    url  = f"{_SEASON_STATS_BASE}/{path}/athletes/{athlete_id}/stats"
+    try:
+        r = requests.get(url, timeout=8)
+        r.raise_for_status()
+        data = r.json()
+        for cat in data.get("categories", []):
+            if cat.get("name") == "averages":
+                labels = cat.get("labels", [])
+                totals = cat.get("totals", [])
+                if labels and totals:
+                    return {
+                        "labels": labels,
+                        "values": totals,
+                        "display_name": cat.get("displayName", "Season Averages"),
+                    }
+        return None
+    except Exception:
+        return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -753,6 +921,20 @@ class App:
         self.loading                       = False
         self.current_game_id: Optional[str] = None
 
+        # Game detail sub-modes: stats | timeline | h2h
+        self.detail_mode      = "stats"
+        self.timeline_plays:  List[Dict]      = []
+        self.h2h_data:        Dict            = {}
+        self.timeline_scroll  = 0
+        self.h2h_scroll       = 0
+
+        # Player season stats
+        self.season_stats:         Optional[Dict] = None
+        self.season_stats_loading  = False
+        self.current_player_id:    Optional[str]  = None
+        self.current_player_name:  str            = ""
+        self._season_stats_cache:  Dict[str, Dict] = {}   # (sport,id) → stats
+
         self._fetch_token: Tuple = ("", None, "nba")
         self._lock    = threading.Lock()
         self._running = True
@@ -784,7 +966,9 @@ class App:
                 continue
 
             if key in (ord("q"), 27):
-                if   self.state == "game_detail":
+                if self.state == "player_season":
+                    self.state = "game_detail"
+                elif self.state == "game_detail":
                     self.state = "game_list"
                     self.player_scroll = 0
                 elif self.state == "ladder":
@@ -845,6 +1029,21 @@ class App:
                     url = KAYO_URLS.get(self.current_sport, "https://kayosports.com.au/")
                     webbrowser.open(url)
 
+            elif key in (ord("t"), ord("T")):
+                if self.state == "game_detail":
+                    self.detail_mode     = "timeline"
+                    self.timeline_scroll = 0
+
+            elif key in (ord("h"), ord("H")):
+                if self.state == "game_detail":
+                    self.detail_mode  = "h2h"
+                    self.h2h_scroll   = 0
+
+            elif key in (ord("s"), ord("S")):
+                if self.state == "game_detail":
+                    self.detail_mode   = "stats"
+                    self.player_scroll = 0
+
         self._running = False
         self._wake.set()
 
@@ -856,7 +1055,14 @@ class App:
         elif self.state == "game_list":
             self.game_idx = max(0, self.game_idx - 1)
         elif self.state == "game_detail":
-            self.player_scroll = max(0, self.player_scroll - 1)
+            if self.detail_mode == "timeline":
+                self.timeline_scroll = max(0, self.timeline_scroll - 1)
+            elif self.detail_mode == "h2h":
+                self.h2h_scroll = max(0, self.h2h_scroll - 1)
+            else:
+                self.player_scroll = max(0, self.player_scroll - 1)
+        elif self.state == "player_season":
+            pass  # no scrolling needed for season stats
         elif self.state == "ladder":
             self.ladder_scroll = max(0, self.ladder_scroll - 1)
 
@@ -869,9 +1075,18 @@ class App:
             flat = _flatten_games(games)
             self.game_idx = min(max(0, len(flat) - 1), self.game_idx + 1)
         elif self.state == "game_detail":
-            with self._lock:
-                n = len(self.players)
-            self.player_scroll = min(max(0, n - 1), self.player_scroll + 1)
+            if self.detail_mode == "timeline":
+                with self._lock:
+                    n = len(self.timeline_plays)
+                self.timeline_scroll = min(max(0, n - 1), self.timeline_scroll + 1)
+            elif self.detail_mode == "h2h":
+                with self._lock:
+                    n = len(self.h2h_data.get("games", []))
+                self.h2h_scroll = min(max(0, n - 1), self.h2h_scroll + 1)
+            else:
+                with self._lock:
+                    n = len(self.players)
+                self.player_scroll = min(max(0, n - 1), self.player_scroll + 1)
         elif self.state == "ladder":
             self.ladder_scroll += 1  # clamped in renderer
 
@@ -901,8 +1116,46 @@ class App:
                     self._prev_ranks  = {}
                 self.player_scroll = 0
                 self.team_filter   = 0
+                self.detail_mode    = "stats"
+                self.timeline_plays = []
+                self.h2h_data       = {}
+                self.timeline_scroll= 0
+                self.h2h_scroll     = 0
                 self.state         = "game_detail"
                 self._wake.set()
+
+        elif self.state == "game_detail" and self.detail_mode == "stats":
+            # Enter on a player → season stats
+            with self._lock:
+                players = list(self.players)
+                away_abbrev = self.game_header.get("away_abbrev", "")
+                home_abbrev = self.game_header.get("home_abbrev", "")
+            # Reconstruct visible list same as _game_detail
+            if self.team_filter == 1:
+                visible = [p for p in players if p["team"] == away_abbrev]
+            elif self.team_filter == 2:
+                visible = [p for p in players if p["team"] == home_abbrev]
+            else:
+                visible = players
+            if visible and self.player_scroll < len(visible):
+                p = visible[self.player_scroll]
+                aid = p.get("athlete_id", "")
+                if aid:
+                    self.current_player_id   = aid
+                    self.current_player_name = p.get("name", "")
+                    cache_key = f"{self.current_sport}:{aid}"
+                    if cache_key in self._season_stats_cache:
+                        self.season_stats = self._season_stats_cache[cache_key]
+                        self.state = "player_season"
+                    else:
+                        self.season_stats = None
+                        self.season_stats_loading = True
+                        self.state = "player_season"
+                        threading.Thread(
+                            target=self._load_season_stats,
+                            args=(cache_key, self.current_sport, aid),
+                            daemon=True
+                        ).start()
 
     # ── Background refresh ────────────────────────────────────────────────────
 
@@ -913,6 +1166,15 @@ class App:
                     and self.game_header.get("state") == "in")
             self._wake.wait(timeout=LIVE_REFRESH if live else REFRESH_INTERVAL)
             self._wake.clear()
+
+    def _load_season_stats(self, cache_key: str, sport: str, athlete_id: str) -> None:
+        stats = fetch_season_stats(sport, athlete_id)
+        with self._lock:
+            if cache_key == f"{self.current_sport}:{self.current_player_id}":
+                self.season_stats = stats
+                self.season_stats_loading = False
+                if stats:
+                    self._season_stats_cache[cache_key] = stats
 
     def _scoreboard_params(self) -> Dict:
         """Build ESPN scoreboard URL params based on sport and nav_offset."""
@@ -991,6 +1253,8 @@ class App:
                 if data is not None:
                     parse_fn = _PARSE_BOXSCORE.get(sport, parse_nba_boxscore)
                     header, players = parse_fn(data)
+                    timeline = parse_timeline(data)
+                    h2h      = parse_h2h(data)
                     new_ranks = {p["name"]: i for i, p in enumerate(players)}
                     changes: Dict[str, int] = {}
                     with self._lock:
@@ -1005,6 +1269,8 @@ class App:
                         self.players      = players
                         self.rank_changes = changes
                         self._prev_ranks  = new_ranks
+                        self.timeline_plays = timeline
+                        self.h2h_data       = h2h
                         self.last_refresh = time.time()
                         self.fetch_error  = None
                 else:
@@ -1085,8 +1351,12 @@ class App:
         self.scr.erase()
         if   self.state == "sport_select": self._sport_select()
         elif self.state == "game_list":    self._game_list()
-        elif self.state == "game_detail":  self._game_detail()
+        elif self.state == "game_detail":
+            if   self.detail_mode == "timeline": self._game_timeline()
+            elif self.detail_mode == "h2h":      self._game_h2h()
+            else:                                self._game_detail()
         elif self.state == "ladder":       self._ladder()
+        elif self.state == "player_season": self._player_season()
         self._status_bar()
         self.scr.refresh()
 
@@ -1208,9 +1478,31 @@ class App:
                         mid   = f"{'vs':^24}"
                         right = f"{g['home_abbrev']:<4}   {g['detail']}"
 
-                    self._add(y, 0, left,  row_attr)
-                    self._add(y, len(left), mid,  row_attr)
-                    self._add(y, len(left) + len(mid), right, row_attr)
+                    if sel:
+                        self._add(y, 0, left,  row_attr)
+                        self._add(y, len(left), mid,  row_attr)
+                        self._add(y, len(left) + len(mid), right, row_attr)
+                    else:
+                        # Apply team colours to abbreviations/scores
+                        sport = self.current_sport
+                        away_abbrev = g["away_abbrev"]
+                        home_abbrev = g["home_abbrev"]
+                        away_tc = cp_team(sport, away_abbrev)
+                        home_tc = cp_team(sport, home_abbrev)
+                        if g["status"] in ("live", "final"):
+                            self._add(y, 0, pfx, curses.A_NORMAL)
+                            self._add(y, len(pfx), f"{away_abbrev:>4}", away_tc)
+                            self._add(y, len(left), mid, curses.A_NORMAL)
+                            right_start = len(left) + len(mid)
+                            self._add(y, right_start, f"{home_abbrev:<4}", home_tc)
+                            self._add(y, right_start + 4, right[4:], curses.A_NORMAL)
+                        else:
+                            self._add(y, 0, pfx, curses.A_NORMAL)
+                            self._add(y, len(pfx), f"{away_abbrev:>4}", away_tc)
+                            self._add(y, len(left), mid, curses.A_NORMAL)
+                            right_start = len(left) + len(mid)
+                            self._add(y, right_start, f"{home_abbrev:<4}", home_tc)
+                            self._add(y, right_start + 4, right[4:], curses.A_NORMAL)
 
                     if g["status"] == "live" and not sel:
                         self._add(y, 1, "●", cp("live_badge", bold=True))
@@ -1353,6 +1645,73 @@ class App:
             self._add(y, col_x, val[:cw], attr)
             col_x += cw + 1
 
+    # ── Shared score box helper ───────────────────────────────────────────────
+
+    def _draw_score_box(self, header: Dict, sport: str) -> None:
+        """Draw the score box in rows 1–5. Shared by detail/timeline/h2h views."""
+        _, w = self.scr.getmaxyx()
+        state       = header.get("state", "pre")
+        away_abbrev = header.get("away_abbrev", "AWY")
+        home_abbrev = header.get("home_abbrev", "HOM")
+        away_name   = header.get("away_name", away_abbrev)
+        home_name   = header.get("home_name", home_abbrev)
+
+        if sport == "afl":
+            ag, ab_v = header.get("away_goals"), header.get("away_behinds")
+            hg, hb_v = header.get("home_goals"), header.get("home_behinds")
+            away_score = (f"{ag}.{ab_v}.{header['away_score']}"
+                          if ag and ab_v else str(header.get("away_score", "0")))
+            home_score = (f"{hg}.{hb_v}.{header['home_score']}"
+                          if hg and hb_v else str(header.get("home_score", "0")))
+        else:
+            away_score = str(header.get("away_score", "0"))
+            home_score = str(header.get("home_score", "0"))
+
+        if state == "in":
+            status_line = f"  ●  {header['period']}   {header['clock']}  "
+            status_attr = cp("live_badge", bold=True)
+        elif state == "post":
+            status_line = "  FULL TIME  "
+            status_attr = curses.A_BOLD
+        else:
+            status_line = f"  {header.get('detail', 'Upcoming')}  "
+            status_attr = curses.A_DIM
+
+        max_name  = min(22, max(8, (w - 24) // 2))
+        away_disp = away_name[:max_name].upper()
+        home_disp = home_name[:max_name].upper()
+        mid       = w // 2
+        box_w     = min(w - 2, 80)
+        bx        = max(0, (w - box_w) // 2)
+        ba        = cp("box_border")
+
+        self._add(1, bx, "┌" + "─" * (box_w - 2) + "┐", ba)
+        self._add(5, bx, "└" + "─" * (box_w - 2) + "┘", ba)
+        for row in (2, 3, 4):
+            self._add(row, bx,            "│", ba)
+            self._add(row, bx + box_w - 1, "│", ba)
+
+        # Team names
+        self._add(2, max(bx + 2, mid - len(away_disp) - 5),
+                  away_disp, cp_team(sport, away_abbrev, bold=True))
+        self._add_center(2, "vs", curses.A_DIM)
+        self._add(2, min(bx + box_w - len(home_disp) - 2, mid + 4),
+                  home_disp, cp_team(sport, home_abbrev, bold=True))
+
+        # Scores
+        self._add(3, max(bx + 2, mid - len(away_score) - 6),
+                  away_score, cp_team(sport, away_abbrev, bold=True) | curses.A_BOLD)
+        self._add_center(3, "─", curses.A_DIM)
+        self._add(3, min(bx + box_w - len(home_score) - 2, mid + 4),
+                  home_score, cp_team(sport, home_abbrev, bold=True) | curses.A_BOLD)
+
+        # Status / clock
+        self._add_center(4, status_line, status_attr)
+        kayo_hint = " K  Watch on Kayo "
+        kayo_x = bx + box_w - len(kayo_hint) - 1
+        if kayo_x > mid + 10:
+            self._add(4, kayo_x, kayo_hint, cp("accent"))
+
     # ── Screen: Game Detail ───────────────────────────────────────────────────
 
     def _game_detail(self) -> None:
@@ -1390,68 +1749,8 @@ class App:
         self._bar(0, title, cp("header", bold=True))
         self._add(0, w - len(back_hint) - 1, back_hint, cp("header"))
 
-        # ── Score box (rows 1–5, no background fill) ──────────────────────
-        # AFL: Goals.Behinds.Total
-        if sport == "afl":
-            ag, ab_v = header.get("away_goals"), header.get("away_behinds")
-            hg, hb_v = header.get("home_goals"), header.get("home_behinds")
-            away_score = (f"{ag}.{ab_v}.{header['away_score']}"
-                          if ag and ab_v else str(header.get("away_score", "0")))
-            home_score = (f"{hg}.{hb_v}.{header['home_score']}"
-                          if hg and hb_v else str(header.get("home_score", "0")))
-        else:
-            away_score = str(header.get("away_score", "0"))
-            home_score = str(header.get("home_score", "0"))
-
-        # Build status line
-        if state == "in":
-            status_line = f"  ●  {header['period']}   {header['clock']}  "
-            status_attr = cp("live_badge", bold=True)
-        elif state == "post":
-            status_line = "  FULL TIME  "
-            status_attr = curses.A_BOLD
-        else:
-            status_line = f"  {header.get('detail', 'Upcoming')}  "
-            status_attr = curses.A_DIM
-
-        # Decide how much name to show
-        max_name = min(22, max(8, (w - 24) // 2))
-        away_disp = away_name[:max_name].upper()
-        home_disp = home_name[:max_name].upper()
-        mid       = w // 2
-
-        # Draw border rows
-        border_attr = cp("box_border")
-        box_w       = min(w - 2, 80)
-        bx          = max(0, (w - box_w) // 2)
-        self._add(1, bx,
-            "┌" + "─" * (box_w - 2) + "┐", border_attr)
-        self._add(5, bx,
-            "└" + "─" * (box_w - 2) + "┘", border_attr)
-        for row in (2, 3, 4):
-            self._add(row, bx,     "│", border_attr)
-            self._add(row, bx + box_w - 1, "│", border_attr)
-
-        # Row 2: team names
-        self._add(2, max(bx + 2, mid - len(away_disp) - 5),
-                  away_disp, cp("away_col", bold=True))
-        self._add_center(2, "vs", curses.A_DIM)
-        self._add(2, min(bx + box_w - len(home_disp) - 2, mid + 4),
-                  home_disp, cp("home_col", bold=True))
-
-        # Row 3: scores — large and prominent
-        self._add(3, max(bx + 2, mid - len(away_score) - 6),
-                  away_score, cp("away_col", bold=True) | curses.A_BOLD)
-        self._add_center(3, "─", curses.A_DIM)
-        self._add(3, min(bx + box_w - len(home_score) - 2, mid + 4),
-                  home_score, cp("home_col", bold=True) | curses.A_BOLD)
-
-        # Row 4: status / clock + Kayo hint tucked inside right of box
-        self._add_center(4, status_line, status_attr)
-        kayo_hint = " K  Watch on Kayo "
-        kayo_x = bx + box_w - len(kayo_hint) - 1
-        if kayo_x > mid + 10:
-            self._add(4, kayo_x, kayo_hint, cp("accent"))
+        # ── Score box ─────────────────────────────────────────────────────
+        self._draw_score_box(header, sport)
 
         # ── Team filter tabs ──────────────────────────────────────────────
         tab_labels = ["All Players", away_abbrev, home_abbrev]
@@ -1470,7 +1769,8 @@ class App:
                 ts = f" {label} "
                 self._add(tab_y, tab_x, ts, curses.A_DIM)
                 tab_x += len(ts) + 1
-        self._add(tab_y, w - 16, "⇥  tab filter", curses.A_DIM)
+        mode_hints = " S Stats  T Timeline  H Head-to-Head "
+        self._add(tab_y, w - len(mode_hints) - 1, mode_hints, curses.A_DIM)
 
         # ── Apply team filter ─────────────────────────────────────────────
         if self.team_filter == 1:
@@ -1530,6 +1830,189 @@ class App:
             self._add(h - 2, 1,
                 f" ↑↓ Scroll  rows {start+1}–{shown_end} of {total}  ({pct}%) ",
                 curses.A_DIM)
+
+
+    # ── Screen: Game Timeline ─────────────────────────────────────────────────
+
+    def _game_timeline(self) -> None:
+        h, w = self.scr.getmaxyx()
+        sport = self.current_sport
+
+        with self._lock:
+            header = dict(self.game_header)
+            plays  = list(self.timeline_plays)
+            away_abbrev = header.get("away_abbrev", "AWY")
+            home_abbrev = header.get("home_abbrev", "HOM")
+
+        if not header:
+            if self.loading:
+                self._add_center(h // 2, "⟳  Loading game data...", curses.A_DIM)
+            else:
+                self._add_center(h // 2, "No data available — press r to retry", curses.A_DIM)
+            return
+
+        back_hint = "  q  Back  "
+        title     = f"  {away_abbrev}  @  {home_abbrev}  ·  {sport.upper()}"
+        self._bar(0, title, cp("header", bold=True))
+        self._add(0, w - len(back_hint) - 1, back_hint, cp("header"))
+
+        self._draw_score_box(header, sport)
+
+        tab_y = 6
+        self._add(tab_y, 0, "─" * max(0, w - 1), curses.A_DIM)
+        self._add(tab_y, 2, " S Stats ", curses.A_DIM)
+        self._add(tab_y, 12, "[ Timeline ]", cp("accent", bold=True))
+        self._add(tab_y, 26, " H Head-to-Head ", curses.A_DIM)
+
+        hdr_y = tab_y + 1
+        self._fill_row(hdr_y, cp("col_hdr"))
+        self._add(hdr_y, 1, "PERIOD", cp("col_hdr", bold=True))
+        self._add(hdr_y, 9, "CLOCK", cp("col_hdr", bold=True))
+        self._add(hdr_y, 16, "SCORE", cp("col_hdr", bold=True))
+        self._add(hdr_y, 25, "PLAY", cp("col_hdr", bold=True))
+
+        data_top  = hdr_y + 1
+        row_count = max(1, h - data_top - 2)
+        start     = self.timeline_scroll
+
+        if not plays:
+            self._add_center(data_top + 2, "No scoring plays yet", curses.A_DIM)
+            return
+
+        for i, play in enumerate(plays[start: start + row_count]):
+            ry    = data_top + i
+            score_str = f"{play['away_score']}-{play['home_score']}"
+            period_s  = play["period"][:6].ljust(6)
+            clock_s   = play["clock"][:5].ljust(5)
+            text_s    = play.get("short_text", play["text"])
+            text_s    = text_s[:max(1, w - 26)]
+            self._add(ry, 1,  period_s,  curses.A_NORMAL)
+            self._add(ry, 9,  clock_s,   curses.A_DIM)
+            self._add(ry, 16, score_str, cp("accent", bold=True))
+            self._add(ry, 25, text_s,    curses.A_NORMAL)
+
+    # ── Screen: Game H2H ──────────────────────────────────────────────────────
+
+    def _game_h2h(self) -> None:
+        h, w = self.scr.getmaxyx()
+        sport = self.current_sport
+
+        with self._lock:
+            header   = dict(self.game_header)
+            h2h      = dict(self.h2h_data)
+
+        if not header:
+            if self.loading:
+                self._add_center(h // 2, "⟳  Loading game data...", curses.A_DIM)
+            else:
+                self._add_center(h // 2, "No data available — press r to retry", curses.A_DIM)
+            return
+
+        away_abbrev = header.get("away_abbrev", "AWY")
+        home_abbrev = header.get("home_abbrev", "HOM")
+
+        back_hint = "  q  Back  "
+        title     = f"  {away_abbrev}  @  {home_abbrev}  ·  {sport.upper()}"
+        self._bar(0, title, cp("header", bold=True))
+        self._add(0, w - len(back_hint) - 1, back_hint, cp("header"))
+
+        self._draw_score_box(header, sport)
+
+        tab_y = 6
+        self._add(tab_y, 0, "─" * max(0, w - 1), curses.A_DIM)
+        self._add(tab_y, 2, " S Stats ", curses.A_DIM)
+        self._add(tab_y, 12, " T Timeline ", curses.A_DIM)
+        self._add(tab_y, 26, "[ Head-to-Head ]", cp("accent", bold=True))
+
+        if not h2h:
+            self._add_center(h // 2, "No head-to-head data available", curses.A_DIM)
+            return
+
+        summary_y = tab_y + 1
+        series_label = h2h.get("series_label", "Series")
+        summary_text = f"  {series_label}:  {h2h.get('summary', '')}"
+        self._add(summary_y, 1, summary_text[:w-2], cp("accent", bold=True))
+        if h2h.get("description"):
+            self._add(summary_y + 1, 1, f"  {h2h['description']}"[:w-2], curses.A_DIM)
+
+        hdr_y = summary_y + 2
+        self._fill_row(hdr_y, cp("col_hdr"))
+        self._add(hdr_y, 1,  "DATE",   cp("col_hdr", bold=True))
+        self._add(hdr_y, 10, "AWAY",   cp("col_hdr", bold=True))
+        self._add(hdr_y, 20, "SCORE",  cp("col_hdr", bold=True))
+        self._add(hdr_y, 30, "HOME",   cp("col_hdr", bold=True))
+        self._add(hdr_y, 40, "RESULT", cp("col_hdr", bold=True))
+
+        data_top  = hdr_y + 1
+        row_count = max(1, h - data_top - 2)
+        games     = h2h.get("games", [])
+        start     = self.h2h_scroll
+
+        if not games:
+            self._add_center(data_top + 1, "No previous meetings found", curses.A_DIM)
+            return
+
+        for i, gm in enumerate(games[start: start + row_count]):
+            ry = data_top + i
+            away_win = gm.get("away_winner", False)
+            home_win = gm.get("home_winner", False)
+            away_attr = cp_team(sport, gm["away_abbrev"], bold=away_win)
+            home_attr = cp_team(sport, gm["home_abbrev"], bold=home_win)
+            result_s  = (f"{gm['away_abbrev']} win" if away_win
+                         else f"{gm['home_abbrev']} win" if home_win
+                         else "Draw")
+            result_a  = (cp("positive") if away_win or home_win else curses.A_DIM)
+            self._add(ry, 1,  gm["date"][:8],         curses.A_DIM)
+            self._add(ry, 10, gm["away_abbrev"][:8],  away_attr)
+            self._add(ry, 20, f"{gm['away_score']}-{gm['home_score']}", cp("accent"))
+            self._add(ry, 30, gm["home_abbrev"][:8],  home_attr)
+            self._add(ry, 40, result_s[:15],           result_a)
+
+    # ── Screen: Player Season Stats ───────────────────────────────────────────
+
+    def _player_season(self) -> None:
+        h, w = self.scr.getmaxyx()
+        sport = self.current_sport
+
+        with self._lock:
+            stats   = self.season_stats
+            loading = self.season_stats_loading
+            name    = self.current_player_name
+
+        title = f"  Season Stats  ·  {name}"
+        self._bar(0, title, cp("header", bold=True))
+        back_hint = "  q  Back  "
+        self._add(0, w - len(back_hint) - 1, back_hint, cp("header"))
+
+        if loading or (stats is None and loading):
+            self._add_center(h // 2, "⟳  Loading season stats...", curses.A_DIM)
+            return
+
+        if not stats:
+            self._add_center(h // 2, "No season stats available for this player", curses.A_DIM)
+            return
+
+        self._add(2, 2, stats.get("display_name", "Season Averages"),
+                  cp("accent", bold=True))
+
+        labels = stats.get("labels", [])
+        values = stats.get("values", [])
+
+        col_w    = max(30, (w - 4) // 2)
+        pairs    = list(zip(labels, values))
+        mid_point = (len(pairs) + 1) // 2
+
+        for i, (label, val) in enumerate(pairs):
+            col   = 0 if i < mid_point else 1
+            row_i = i if i < mid_point else i - mid_point
+            ry    = 4 + row_i
+            x     = 2 + col * col_w
+            if ry >= h - 2:
+                break
+            self._add(ry, x,       f"{label:<8}", cp("col_hdr"))
+            self._add(ry, x + 9,   str(val)[:col_w - 12], curses.A_BOLD)
+
+        self._add(h - 2, 1, "  q  Back to game", curses.A_DIM)
 
     # ── Cell builders ─────────────────────────────────────────────────────────
 
