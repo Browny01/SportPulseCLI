@@ -29,12 +29,18 @@ SportPulse is a Python terminal UI (TUI) that shows live game scores, player sta
 
 ## Features
 
-- **Live scores** — auto-refreshes every 30 seconds
+- **Live scores** — auto-refreshes every 12 seconds during live games
 - **Player stats table** — sorted by performance, updates live (rank-change ↑↓ arrows)
+- **Player cursor** — Up/Down moves a selection cursor; the list stays fixed, only your highlight moves
+- **Season stats** — press Enter on any player to see their full-season averages
 - **All players shown** — including DNP, injured, and inactive players with status labels (`INJ`, `REST`, `SUSP`, `ILL`, `DNP`)
-- **Team filter tabs** — cycle between All Players / Away Team / Home Team
-- **Round navigation** — browse previous and future rounds/weeks/days (AFL/NFL use round numbers, NBA/NHL use dates)
+- **Team filter tabs** — TAB cycles between All Players / Away Team / Home Team
+- **Round navigation** — browse previous and future rounds/weeks/days
 - **League ladder/standings** — live standings with streak, win%, points, and form
+- **Game timeline** — chronological scoring plays (T key)
+- **Head-to-head history** — season series / recent meetings (H key)
+- **Team colour branding** — each team rendered in their brand colour
+- **Kayo integration** — K opens the Kayo Sports livestream page in your browser
 - **AFL score format** — displayed as `Goals.Behinds.Total` (e.g. `12.11.83`)
 - **AFL Fantasy Points** — calculated with the standard AFL Fantasy scoring formula
 
@@ -50,9 +56,9 @@ SportPulse is a Python terminal UI (TUI) that shows live game scores, player sta
 ## Installation
 
 ```bash
-git clone https://github.com/Browny01/SportPulse.git
-cd SportPulse
-pip install -r requirements.txt
+git clone https://github.com/Browny01/SportPulseCLI.git
+cd SportPulseCLI
+pip install -e .
 ```
 
 ---
@@ -60,20 +66,24 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-python3 sportpulse.py
+sportpulse
 ```
 
 ### Controls
 
 | Key | Action |
 |-----|--------|
-| `↑` / `↓` | Navigate menus / scroll |
-| `↵` Enter | Select item / open game |
+| `↑` / `↓` | Navigate menus / move player cursor |
+| `↵` Enter | Select item / open game / view season stats |
 | `q` / `ESC` | Go back / quit |
 | `P` | Previous round or day |
 | `F` | Next round or day |
 | `L` | Toggle league standings/ladder |
 | `TAB` | Cycle team filter (All / Away / Home) |
+| `T` | Game timeline (scoring plays) |
+| `H` | Head-to-head history |
+| `S` | Back to player stats |
+| `K` | Open Kayo Sports livestream in browser |
 | `r` | Force refresh data |
 
 ---

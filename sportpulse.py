@@ -716,22 +716,36 @@ _PARSE_BOXSCORE = {
 }
 
 
+_AFL_SCORE_TYPES = {"goal", "behind", "rushed"}
+
 def parse_timeline(data: Dict) -> List[Dict]:
-    """Extract scoring plays from ESPN summary data, most-recent first."""
+    """Extract scoring plays from ESPN summary data, most-recent first.
+    NBA/NHL/NFL use scoringPlay=True; AFL uses type.type in goal/behind/rushed."""
     plays = data.get("plays", []) if data else []
     result = []
     for p in plays:
-        if not p.get("scoringPlay"):
+        type_obj  = p.get("type", {})
+        type_name = type_obj.get("type", "") if isinstance(type_obj, dict) else ""
+        is_scoring = p.get("scoringPlay") or type_name in _AFL_SCORE_TYPES
+        if not is_scoring:
             continue
         period_val = p.get("period", {})
-        period_str = period_val.get("displayValue", "") if isinstance(period_val, dict) else str(period_val)
-        clock_val  = p.get("clock", {})
-        clock_str  = clock_val.get("displayValue", "") if isinstance(clock_val, dict) else str(clock_val)
-        team_obj   = p.get("team", {})
-        team_id    = team_obj.get("id", "") if isinstance(team_obj, dict) else ""
+        # AFL periods are just numbers; NBA/NHL have displayValue
+        if isinstance(period_val, dict):
+            period_str = period_val.get("displayValue") or f"Q{period_val.get('number', '')}"
+        else:
+            period_str = str(period_val)
+        clock_val = p.get("clock", {})
+        clock_str = clock_val.get("displayValue", "") if isinstance(clock_val, dict) else str(clock_val)
+        team_obj  = p.get("team", {})
+        team_id   = team_obj.get("id", "") if isinstance(team_obj, dict) else ""
+        # Use type text as label for AFL (Goal / Behind / Rushed)
+        type_label = type_obj.get("text", "") if isinstance(type_obj, dict) else ""
+        text = p.get("text", "")
         result.append({
-            "text":       p.get("text", ""),
-            "short_text": p.get("shortDescription", p.get("text", "")),
+            "text":       text,
+            "short_text": p.get("shortDescription", text),
+            "type_label": type_label,
             "period":     period_str,
             "clock":      clock_str,
             "away_score": str(p.get("awayScore", "")),
@@ -744,37 +758,107 @@ def parse_timeline(data: Dict) -> List[Dict]:
 
 
 def parse_h2h(data: Dict) -> Dict:
-    """Extract head-to-head season series from ESPN summary data."""
-    series_list = data.get("seasonseries", []) if data else []
-    if not series_list:
+    """Extract head-to-head data from ESPN summary.
+    NBA/NHL/NFL use seasonseries; AFL uses lastFiveGames."""
+    if not data:
         return {}
-    s = series_list[0]
+
+    # Standard leagues: seasonseries
+    series_list = data.get("seasonseries", [])
+    if series_list:
+        s = series_list[0]
+        games = []
+        for ev in s.get("events", []):
+            comps = ev.get("competitors", [])
+            home  = next((c for c in comps if c.get("homeAway") == "home"), {})
+            away  = next((c for c in comps if c.get("homeAway") == "away"), {})
+            date_str = ev.get("date", "")
+            try:
+                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                date_fmt = dt.strftime("%b %-d")
+            except Exception:
+                date_fmt = date_str[:10]
+            games.append({
+                "date":        date_fmt,
+                "away_abbrev": away.get("team", {}).get("abbreviation", "AWY"),
+                "home_abbrev": home.get("team", {}).get("abbreviation", "HOM"),
+                "away_score":  str(away.get("score", "?")),
+                "home_score":  str(home.get("score", "?")),
+                "away_winner": away.get("winner", False),
+                "home_winner": home.get("winner", False),
+            })
+        return {
+            "summary":      s.get("summary", s.get("shortSummary", "")),
+            "description":  s.get("description", ""),
+            "series_label": s.get("seriesLabel", "Season Series"),
+            "games":        games,
+        }
+
+    # AFL: lastFiveGames — find meetings between the two teams by matching game IDs
+    lfg = data.get("lastFiveGames", [])
+    if len(lfg) < 2:
+        return {}
+    t0 = lfg[0]
+    t1 = lfg[1]
+    t0_evs = {ev["id"]: ev for ev in t0.get("events", [])}
+    t1_evs = {ev["id"]: ev for ev in t1.get("events", [])}
+    common_ids = sorted(set(t0_evs) & set(t1_evs))
+
+    t0_abbrev = t0.get("team", {}).get("abbreviation", "T1")
+    t1_abbrev = t1.get("team", {}).get("abbreviation", "T2")
+    t0_id     = t0.get("team", {}).get("id", "")
+
     games = []
-    for ev in s.get("events", []):
-        comps = ev.get("competitors", [])
-        home = next((c for c in comps if c.get("homeAway") == "home"), {})
-        away = next((c for c in comps if c.get("homeAway") == "away"), {})
-        date_str = ev.get("date", "")
+    for gid in common_ids:
+        ev = t0_evs[gid]
+        date_str = ev.get("gameDate", "")
         try:
             dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             date_fmt = dt.strftime("%b %-d")
         except Exception:
             date_fmt = date_str[:10]
+        home_id  = ev.get("homeTeamId", "")
+        t0_home  = (home_id == t0_id)
+        if t0_home:
+            home_abbrev, away_abbrev = t0_abbrev, t1_abbrev
+            home_score = ev.get("homeTeamScore", "?")
+            away_score = ev.get("awayTeamScore", "?")
+            home_winner = ev.get("gameResult") == "W"
+            away_winner = not home_winner
+        else:
+            home_abbrev, away_abbrev = t1_abbrev, t0_abbrev
+            home_score = ev.get("homeTeamScore", "?")
+            away_score = ev.get("awayTeamScore", "?")
+            away_winner = ev.get("gameResult") == "W"
+            home_winner = not away_winner
         games.append({
             "date":        date_fmt,
-            "away_abbrev": away.get("team", {}).get("abbreviation", "AWY"),
-            "home_abbrev": home.get("team", {}).get("abbreviation", "HOM"),
-            "away_score":  str(away.get("score", "?")),
-            "home_score":  str(home.get("score", "?")),
-            "away_winner": away.get("winner", False),
-            "home_winner": home.get("winner", False),
-            "status":      ev.get("status", "post"),
+            "away_abbrev": away_abbrev,
+            "home_abbrev": home_abbrev,
+            "away_score":  away_score,
+            "home_score":  home_score,
+            "away_winner": away_winner,
+            "home_winner": home_winner,
         })
+
+    if not games:
+        # No H2H meetings in last 5 — show recent form for each team
+        return {
+            "summary":      f"No recent meetings (last 5 games shown per team)",
+            "description":  "",
+            "series_label": "Recent Form",
+            "games":        [],
+            "recent_form":  [
+                {"team": t0_abbrev, "results": [ev.get("gameResult","?") for ev in t0.get("events",[])]},
+                {"team": t1_abbrev, "results": [ev.get("gameResult","?") for ev in t1.get("events",[])]},
+            ],
+        }
+
     return {
-        "summary":     s.get("summary", s.get("shortSummary", "")),
-        "description": s.get("description", ""),
-        "series_label": s.get("seriesLabel", ""),
-        "games":       games,
+        "summary":      f"{len(games)} recent meeting(s)",
+        "description":  "",
+        "series_label": "Recent Meetings",
+        "games":        games,
     }
 
 
@@ -789,22 +873,29 @@ _SEASON_STATS_PATHS: Dict[str, str] = {
 
 def fetch_season_stats(sport: str, athlete_id: str) -> Optional[Dict]:
     """Fetch a player's season averages. Returns parsed dict or None."""
+    if sport == "afl":
+        return None   # ESPN doesn't provide AFL season stats via web API
     path = _SEASON_STATS_PATHS.get(sport, "basketball/nba")
     url  = f"{_SEASON_STATS_BASE}/{path}/athletes/{athlete_id}/stats"
     try:
         r = requests.get(url, timeout=8)
         r.raise_for_status()
         data = r.json()
-        for cat in data.get("categories", []):
-            if cat.get("name") == "averages":
-                labels = cat.get("labels", [])
-                totals = cat.get("totals", [])
-                if labels and totals:
-                    return {
-                        "labels": labels,
-                        "values": totals,
-                        "display_name": cat.get("displayName", "Season Averages"),
-                    }
+        # Prefer "averages" category; fall back to first category with data
+        cats = data.get("categories", [])
+        chosen = next((c for c in cats if c.get("name") == "averages"), None)
+        if chosen is None:
+            chosen = next((c for c in cats if c.get("labels") and c.get("totals")), None)
+        if chosen is None:
+            return None
+        labels = chosen.get("labels", [])
+        totals = chosen.get("totals", [])
+        if labels and totals:
+            return {
+                "labels":       labels,
+                "values":       totals,
+                "display_name": chosen.get("displayName", "Season Averages"),
+            }
         return None
     except Exception:
         return None
@@ -901,7 +992,8 @@ class App:
         self.sport_idx     = 0
         self.game_idx      = 0
         self.game_scroll   = 0
-        self.player_scroll = 0
+        self.player_scroll = 0   # viewport offset (first visible row)
+        self.player_cursor = 0   # absolute index of selected player in visible list
         self.ladder_scroll = 0
         self.team_filter   = 0   # 0=All, 1=Away, 2=Home
 
@@ -1023,6 +1115,7 @@ class App:
                 if self.state == "game_detail":
                     self.team_filter   = (self.team_filter + 1) % 3
                     self.player_scroll = 0
+                    self.player_cursor = 0
 
             elif key in (ord("k"), ord("K")):
                 if self.state == "game_detail":
@@ -1060,9 +1153,9 @@ class App:
             elif self.detail_mode == "h2h":
                 self.h2h_scroll = max(0, self.h2h_scroll - 1)
             else:
-                self.player_scroll = max(0, self.player_scroll - 1)
+                self.player_cursor = max(0, self.player_cursor - 1)
         elif self.state == "player_season":
-            pass  # no scrolling needed for season stats
+            pass
         elif self.state == "ladder":
             self.ladder_scroll = max(0, self.ladder_scroll - 1)
 
@@ -1086,7 +1179,7 @@ class App:
             else:
                 with self._lock:
                     n = len(self.players)
-                self.player_scroll = min(max(0, n - 1), self.player_scroll + 1)
+                self.player_cursor = min(max(0, n - 1), self.player_cursor + 1)
         elif self.state == "ladder":
             self.ladder_scroll += 1  # clamped in renderer
 
@@ -1115,6 +1208,7 @@ class App:
                     self.rank_changes = {}
                     self._prev_ranks  = {}
                 self.player_scroll = 0
+                self.player_cursor = 0
                 self.team_filter   = 0
                 self.detail_mode    = "stats"
                 self.timeline_plays = []
@@ -1137,8 +1231,8 @@ class App:
                 visible = [p for p in players if p["team"] == home_abbrev]
             else:
                 visible = players
-            if visible and self.player_scroll < len(visible):
-                p = visible[self.player_scroll]
+            if visible and self.player_cursor < len(visible):
+                p = visible[self.player_cursor]
                 aid = p.get("athlete_id", "")
                 if aid:
                     self.current_player_id   = aid
@@ -1799,16 +1893,31 @@ class App:
         # ── Player rows ───────────────────────────────────────────────────
         data_top   = col_hdr_y + 1
         table_rows = max(1, h - data_top - 2)
-        start      = self.player_scroll
+
+        # Clamp viewport so player_cursor is always visible
+        cursor = self.player_cursor
+        if cursor < self.player_scroll:
+            self.player_scroll = cursor
+        elif cursor >= self.player_scroll + table_rows:
+            self.player_scroll = cursor - table_rows + 1
+        start = self.player_scroll
 
         for i, player in enumerate(visible[start: start + table_rows]):
-            ry   = data_top + i
-            rank = start + i + 1
-            dnp  = player.get("did_not_play", False)
-            row_attr = curses.A_DIM if dnp else curses.A_NORMAL
+            ry      = data_top + i
+            abs_idx = start + i
+            rank    = abs_idx + 1
+            is_sel  = (abs_idx == cursor)
+            dnp     = player.get("did_not_play", False)
+
+            if is_sel:
+                self._fill_row(ry, cp("selected"))
+                row_attr = cp("selected")
+            else:
+                row_attr = curses.A_DIM if dnp else curses.A_NORMAL
+
             chg  = changes.get(player["name"], 0) if not dnp else 0
-            if chg > 0:   chg_str, chg_attr = "↑", cp("positive", bold=True)
-            elif chg < 0: chg_str, chg_attr = "↓", cp("negative", bold=True)
+            if chg > 0:   chg_str, chg_attr = "↑", (cp("selected") if is_sel else cp("positive", bold=True))
+            elif chg < 0: chg_str, chg_attr = "↓", (cp("selected") if is_sel else cp("negative", bold=True))
             else:         chg_str, chg_attr = " ", row_attr
 
             if dnp:
@@ -1820,16 +1929,12 @@ class App:
                                             row_attr, sport)
 
             for (_, cw, _), (val, vattr), cx in zip(table_cols, cells, col_positions):
-                self._add(ry, cx, val[:cw], vattr)
+                self._add(ry, cx, val[:cw], row_attr if is_sel else vattr)
 
-        # Scroll indicator
+        # Selection indicator
         total = len(visible)
-        if total > table_rows:
-            shown_end = min(start + table_rows, total)
-            pct = int(100 * start / max(1, total - table_rows))
-            self._add(h - 2, 1,
-                f" ↑↓ Scroll  rows {start+1}–{shown_end} of {total}  ({pct}%) ",
-                curses.A_DIM)
+        indicator = f" ↑↓  Player {cursor + 1} of {total}  ·  Enter → Season Stats "
+        self._add(h - 2, 1, indicator, curses.A_DIM)
 
 
     # ── Screen: Game Timeline ─────────────────────────────────────────────────
