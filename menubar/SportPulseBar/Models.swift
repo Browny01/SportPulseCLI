@@ -115,6 +115,8 @@ struct GameDetail: Sendable {
     let homeAbbrev: String
     let awayName: String
     let homeName: String
+    let awayLogo: URL?
+    let homeLogo: URL?
     let awayScore: String
     let homeScore: String
     let status: GameStatus

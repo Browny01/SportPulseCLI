@@ -188,6 +188,8 @@ actor ESPNService {
             homeAbbrev:   header.homeAbbrev,
             awayName:     header.awayName,
             homeName:     header.homeName,
+            awayLogo:     header.awayLogo,
+            homeLogo:     header.homeLogo,
             awayScore:    header.awayScore,
             homeScore:    header.homeScore,
             status:       header.status,
@@ -205,6 +207,8 @@ actor ESPNService {
 
     private struct HeaderInfo {
         var awayAbbrev, homeAbbrev, awayName, homeName: String
+        var awayLogo: URL?
+        var homeLogo: URL?
         var awayScore, homeScore: String
         var status: GameStatus
         var statusDetail, period, clock: String
@@ -240,15 +244,30 @@ actor ESPNService {
             }
         }()
 
+        let awayLogoStr = (awayTeam["logos"] as? [[String: Any]])?.first?["href"] as? String
+                       ?? awayTeam["logo"] as? String
+        let homeLogoStr = (homeTeam["logos"] as? [[String: Any]])?.first?["href"] as? String
+                       ?? homeTeam["logo"] as? String
+
+        let rawStatusDetail = statusType["shortDetail"] as? String ?? statusType["detail"] as? String ?? ""
+        let statusDetail: String
+        if status == .pre, let isoDate = comps["date"] as? String {
+            statusDetail = formatAWST(isoDate: isoDate)
+        } else {
+            statusDetail = rawStatusDetail
+        }
+
         return HeaderInfo(
             awayAbbrev:   awayTeam["abbreviation"] as? String ?? "AWY",
             homeAbbrev:   homeTeam["abbreviation"] as? String ?? "HOM",
             awayName:     awayTeam["shortDisplayName"] as? String ?? awayTeam["displayName"] as? String ?? "Away",
             homeName:     homeTeam["shortDisplayName"] as? String ?? homeTeam["displayName"] as? String ?? "Home",
+            awayLogo:     awayLogoStr.flatMap { URL(string: $0) },
+            homeLogo:     homeLogoStr.flatMap { URL(string: $0) },
             awayScore:    away["score"] as? String ?? "0",
             homeScore:    home["score"] as? String ?? "0",
             status:       status,
-            statusDetail: statusType["shortDetail"] as? String ?? statusType["detail"] as? String ?? "",
+            statusDetail: statusDetail,
             period:       periodStr,
             clock:        clockStr
         )

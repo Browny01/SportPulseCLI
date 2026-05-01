@@ -253,13 +253,12 @@ struct ScoreBoxView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // Teams + Scores
             HStack(alignment: .center, spacing: 0) {
-                teamSide(abbrev: detail.awayAbbrev, name: detail.awayName,
-                         score: detail.awayScore, sport: detail.sport)
+                teamSide(logo: detail.awayLogo, abbrev: detail.awayAbbrev,
+                         name: detail.awayName, score: detail.awayScore, sport: detail.sport)
                 centerStatus
-                teamSide(abbrev: detail.homeAbbrev, name: detail.homeName,
-                         score: detail.homeScore, sport: detail.sport)
+                teamSide(logo: detail.homeLogo, abbrev: detail.homeAbbrev,
+                         name: detail.homeName, score: detail.homeScore, sport: detail.sport)
             }
         }
         .padding(14)
@@ -273,11 +272,23 @@ struct ScoreBoxView: View {
         }
     }
 
-    private func teamSide(abbrev: String, name: String, score: String, sport: Sport) -> some View {
+    private func teamSide(logo: URL?, abbrev: String, name: String, score: String, sport: Sport) -> some View {
         VStack(spacing: 4) {
-            Text(abbrev)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(teamColor(sport: sport, abbrev: abbrev))
+            // Logo or fallback circle
+            if let url = logo {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFit()
+                    default:
+                        logoFallback(abbrev: abbrev, sport: sport)
+                    }
+                }
+                .frame(width: 36, height: 36)
+            } else {
+                logoFallback(abbrev: abbrev, sport: sport)
+                    .frame(width: 36, height: 36)
+            }
             Text(name)
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
@@ -287,6 +298,16 @@ struct ScoreBoxView: View {
                 .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func logoFallback(abbrev: String, sport: Sport) -> some View {
+        ZStack {
+            Circle()
+                .fill(teamColor(sport: sport, abbrev: abbrev).opacity(0.15))
+            Text(String(abbrev.prefix(3)))
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(teamColor(sport: sport, abbrev: abbrev))
+        }
     }
 
     private var centerStatus: some View {
