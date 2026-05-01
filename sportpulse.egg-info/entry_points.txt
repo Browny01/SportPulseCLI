@@ -1,0 +1,2 @@
+[console_scripts]
+sportpulse = sportpulse:cli_entry

@@ -21,6 +21,7 @@ Controls:
 import curses
 import time
 import threading
+import webbrowser
 import requests
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, List, Optional, Tuple
@@ -31,6 +32,14 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 REFRESH_INTERVAL = 20   # seconds between auto-refreshes
 LIVE_REFRESH     = 12   # faster refresh when a live game is open
+
+# Kayo Sports deep-link URLs per sport
+KAYO_URLS: Dict[str, str] = {
+    "nba": "https://kayosports.com.au/sport/nba",
+    "nhl": "https://kayosports.com.au/sport/nhl",
+    "afl": "https://kayosports.com.au/sport/afl",
+    "nfl": "https://kayosports.com.au/sport/nfl",
+}
 
 SPORT_PATHS: Dict[str, str] = {
     "nba": "basketball/nba",
@@ -831,6 +840,11 @@ class App:
                     self.team_filter   = (self.team_filter + 1) % 3
                     self.player_scroll = 0
 
+            elif key in (ord("k"), ord("K")):
+                if self.state == "game_detail":
+                    url = KAYO_URLS.get(self.current_sport, "https://kayosports.com.au/")
+                    webbrowser.open(url)
+
         self._running = False
         self._wake.set()
 
@@ -1432,8 +1446,12 @@ class App:
         self._add(3, min(bx + box_w - len(home_score) - 2, mid + 4),
                   home_score, cp("home_col", bold=True) | curses.A_BOLD)
 
-        # Row 4: status / clock
+        # Row 4: status / clock + Kayo hint tucked inside right of box
         self._add_center(4, status_line, status_attr)
+        kayo_hint = " K  Watch on Kayo "
+        kayo_x = bx + box_w - len(kayo_hint) - 1
+        if kayo_x > mid + 10:
+            self._add(4, kayo_x, kayo_hint, cp("accent"))
 
         # ── Team filter tabs ──────────────────────────────────────────────
         tab_labels = ["All Players", away_abbrev, home_abbrev]
@@ -1645,8 +1663,13 @@ def main(stdscr: "curses._CursesWindow") -> None:
     app.run()
 
 
-if __name__ == "__main__":
+def cli_entry() -> None:
+    """Console-script entry point — called when user types `sportpulse`."""
     try:
         curses.wrapper(main)
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == "__main__":
+    cli_entry()
