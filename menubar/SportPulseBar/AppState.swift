@@ -21,6 +21,9 @@ final class AppState: ObservableObject {
     // Menu bar cycling
     @Published var menuBarText: String = "SportPulse"
 
+    // Pinned game — shows that game's score in menu bar instead of cycling
+    @Published var pinnedGameId: String? = nil
+
     // Popover is open — used to speed up refresh
     var isPopoverOpen = false {
         didSet { restartRefreshTimer() }
@@ -127,6 +130,20 @@ final class AppState: ObservableObject {
     }
 
     private func updateMenuBarText() {
+        // Pinned game takes priority over cycling
+        if let pinId = pinnedGameId {
+            for sport in Sport.allCases {
+                if let game = (gamesBySport[sport] ?? []).first(where: { $0.id == pinId }) {
+                    let clock  = game.clock.isEmpty  ? "" : " \(game.clock)"
+                    let period = game.period.isEmpty ? "" : " \(game.period)\(clock)"
+                    menuBarText = "\(game.sport.emoji) \(game.awayAbbrev) \(game.awayScore) · \(game.homeAbbrev) \(game.homeScore)\(period)"
+                    return
+                }
+            }
+            // Pinned game no longer in any scoreboard — clear pin
+            pinnedGameId = nil
+        }
+
         guard !liveGames.isEmpty else {
             menuBarText = "SportPulse"
             return
@@ -136,6 +153,11 @@ final class AppState: ObservableObject {
         let clock = game.clock.isEmpty ? "" : " \(game.clock)"
         let period = game.period.isEmpty ? "" : " \(game.period)\(clock)"
         menuBarText = "\(game.sport.emoji) \(game.awayAbbrev) \(game.awayScore) · \(game.homeAbbrev) \(game.homeScore)\(period)"
+    }
+
+    func togglePin(gameId: String) {
+        pinnedGameId = (pinnedGameId == gameId) ? nil : gameId
+        updateMenuBarText()
     }
 
     // ─────────────────────────────────────────────────────────────────────────

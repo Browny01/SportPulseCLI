@@ -34,8 +34,12 @@ struct GameDetailView: View {
                     VStack(spacing: 0) {
                         ScoreBoxView(detail: detail)
                             .padding(.horizontal, 12)
-                            .padding(.top, 12)
-                            .padding(.bottom, 8)
+                            .padding(.top, 4)
+                            .padding(.bottom, 6)
+
+                        actionRow
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 10)
 
                         detailTabPicker(detail: detail)
                             .padding(.horizontal, 12)
@@ -50,18 +54,55 @@ struct GameDetailView: View {
         }
         .navigationTitle("\(game.awayAbbrev) @ \(game.homeAbbrev)")
         .navigationBarBackButtonHidden(false)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    NSWorkspace.shared.open(game.sport.kayoURL)
-                } label: {
-                    Label("Watch on Kayo", systemImage: "play.tv")
-                        .font(.caption)
-                }
-                .help("Watch on Kayo Sports")
-            }
-        }
         .frame(width: 380)
+    }
+
+    // ── Action Row (Pin + Kayo) ───────────────────────────────────────────────
+
+    private var actionRow: some View {
+        HStack(spacing: 8) {
+            // ── Pin button ────────────────────────────────────────────────────
+            let isPinned = state.pinnedGameId == game.id
+            Button {
+                state.togglePin(gameId: game.id)
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: isPinned ? "pin.fill" : "pin")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(isPinned ? "Unpin" : "Pin Score")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background(isPinned ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor))
+                .foregroundStyle(isPinned ? Color.accentColor : .primary)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(isPinned ? Color.accentColor.opacity(0.35) : Color.primary.opacity(0.12), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .help(isPinned ? "Unpin from menu bar" : "Show this game's score in the menu bar")
+
+            // ── Kayo Watch button ─────────────────────────────────────────────
+            Button {
+                NSWorkspace.shared.open(game.sport.kayoURL)
+            } label: {
+                HStack(spacing: 5) {
+                    Image("KayoLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 13)
+                    Text("Watch")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background(Color(red: 0.0, green: 0.68, blue: 0.38))
+                .foregroundStyle(.white)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Watch on Kayo Sports")
+        }
     }
 
     // ── Loading / Error ───────────────────────────────────────────────────────

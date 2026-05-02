@@ -230,9 +230,14 @@ actor ESPNService {
         let stateStr   = statusType["state"] as? String ?? "pre"
         let status: GameStatus = stateStr == "in" ? .live : stateStr == "post" ? .post : .pre
 
-        let period = comps["period"] as? Int ?? 0
-        let clockObj = comps["clock"] as? [String: Any] ?? [:]
-        let clockStr = clockObj["displayValue"] as? String ?? ""
+        // Game detail summary uses status.period / status.displayClock;
+        // scoreboard uses competition-level period / clock.displayValue — try both.
+        let period = statusObj["period"] as? Int
+                  ?? comps["period"] as? Int
+                  ?? 0
+        let clockStr = statusObj["displayClock"] as? String
+                    ?? (comps["clock"] as? [String: Any])?["displayValue"] as? String
+                    ?? ""
 
         let periodStr: String = {
             if period == 0 { return "" }
