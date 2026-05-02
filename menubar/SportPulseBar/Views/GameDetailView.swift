@@ -89,8 +89,10 @@ struct GameDetailView: View {
                 HStack(spacing: 5) {
                     Image("KayoLogo")
                         .resizable()
+                        .renderingMode(.template)
                         .scaledToFit()
                         .frame(height: 13)
+                        .foregroundStyle(.white)
                     Text("Watch")
                         .font(.system(size: 11, weight: .semibold))
                 }

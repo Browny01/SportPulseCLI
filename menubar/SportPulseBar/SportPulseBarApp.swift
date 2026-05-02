@@ -20,11 +20,19 @@ struct SportPulseBarApp: App {
 
     @ViewBuilder
     private var menuBarLabel: some View {
-        if let icon = makeMenuBarIcon() {
+        if state.pinnedGameId != nil {
+            // Pinned: show icon + live score text
+            HStack(spacing: 4) {
+                if let icon = makeMenuBarIcon() {
+                    Image(nsImage: icon)
+                }
+                Text(state.menuBarText)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+            }
+        } else if let icon = makeMenuBarIcon() {
             Image(nsImage: icon)
         } else {
-            Text(state.menuBarText)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+            Text("SportPulse")
         }
     }
 
