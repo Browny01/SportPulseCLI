@@ -21,8 +21,11 @@ final class AppState: ObservableObject {
     // Menu bar cycling
     @Published var menuBarText: String = "SportPulse"
 
-    // Pinned game — shows that game's score in menu bar instead of cycling
-    @Published var pinnedGameId: String? = nil
+    // Pinned games — menu bar rotates through these every 5s
+    @Published var pinnedGameIds: [String] = []
+
+    // Back-compat helper used by GameDetailView pin button
+    var pinnedGameId: String? { pinnedGameIds.first }
 
     // Popover is open — used to speed up refresh
     var isPopoverOpen = false {
@@ -121,17 +124,20 @@ final class AppState: ObservableObject {
     }
 
     private func advanceCycle() {
-        guard !liveGames.isEmpty else {
-            menuBarText = "SportPulse"
-            return
+        // If games are pinned, cycle through them; otherwise cycle live games
+        if !pinnedGameIds.isEmpty {
+            cycleIndex = (cycleIndex + 1) % pinnedGameIds.count
+        } else if !liveGames.isEmpty {
+            cycleIndex = (cycleIndex + 1) % liveGames.count
         }
-        cycleIndex = (cycleIndex + 1) % liveGames.count
         updateMenuBarText()
     }
 
     private func updateMenuBarText() {
-        // Pinned game takes priority over cycling
-        if let pinId = pinnedGameId {
+        // Pinned games take priority — cycle through them
+        if !pinnedGameIds.isEmpty {
+            if cycleIndex >= pinnedGameIds.count { cycleIndex = 0 }
+            let pinId = pinnedGameIds[cycleIndex]
             for sport in Sport.allCases {
                 if let game = (gamesBySport[sport] ?? []).first(where: { $0.id == pinId }) {
                     let clock  = game.clock.isEmpty  ? "" : " \(game.clock)"
@@ -140,8 +146,11 @@ final class AppState: ObservableObject {
                     return
                 }
             }
-            // Pinned game no longer in any scoreboard — clear pin
-            pinnedGameId = nil
+            // Pinned game vanished — remove it and retry
+            pinnedGameIds.removeAll { $0 == pinId }
+            cycleIndex = 0
+            updateMenuBarText()
+            return
         }
 
         guard !liveGames.isEmpty else {
@@ -156,7 +165,12 @@ final class AppState: ObservableObject {
     }
 
     func togglePin(gameId: String) {
-        pinnedGameId = (pinnedGameId == gameId) ? nil : gameId
+        if let idx = pinnedGameIds.firstIndex(of: gameId) {
+            pinnedGameIds.remove(at: idx)
+            if cycleIndex >= max(1, pinnedGameIds.count) { cycleIndex = 0 }
+        } else {
+            pinnedGameIds.append(gameId)
+        }
         updateMenuBarText()
     }
 

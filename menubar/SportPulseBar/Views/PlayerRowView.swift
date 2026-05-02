@@ -6,11 +6,20 @@ struct PlayerRowView: View {
     let labels: [String]
 
     var body: some View {
-        if player.didNotPlay {
-            dnpRow
-        } else {
-            activeRow
+        Group {
+            if player.didNotPlay {
+                dnpRow
+            } else {
+                activeRow
+            }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let url = player.athleteURL {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        .help(player.athleteURL != nil ? "View \(player.name)'s ESPN profile" : "")
     }
 
     // ── Active Player ─────────────────────────────────────────────────────────
@@ -23,11 +32,18 @@ struct PlayerRowView: View {
                 .clipShape(Capsule())
                 .padding(.trailing, 5)
 
-            // Name + position
+            // Name + position + external link hint
             VStack(alignment: .leading, spacing: 1) {
-                Text(player.name)
-                    .font(.system(size: 12, weight: .semibold))
-                    .lineLimit(1)
+                HStack(spacing: 3) {
+                    Text(player.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                    if player.athleteURL != nil {
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
                 HStack(spacing: 3) {
                     Text(player.teamAbbrev)
                         .font(.system(size: 9))

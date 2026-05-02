@@ -335,7 +335,8 @@ actor ESPNService {
                         statLabels:   filteredLabels,
                         statValues:   filteredValues,
                         sortKey:      sortKey,
-                        fantasyPoints: fantasy
+                        fantasyPoints: fantasy,
+                        athleteURL:   URL(string: sport.playerURLBase + pid)
                     ))
                     _ = zipped
                 }

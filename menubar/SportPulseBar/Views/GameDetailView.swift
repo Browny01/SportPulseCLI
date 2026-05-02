@@ -62,7 +62,7 @@ struct GameDetailView: View {
     private var actionRow: some View {
         HStack(spacing: 8) {
             // ── Pin button ────────────────────────────────────────────────────
-            let isPinned = state.pinnedGameId == game.id
+            let isPinned = state.pinnedGameIds.contains(game.id)
             Button {
                 state.togglePin(gameId: game.id)
             } label: {

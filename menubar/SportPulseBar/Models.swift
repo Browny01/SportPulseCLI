@@ -39,6 +39,15 @@ enum Sport: String, CaseIterable, Identifiable {
         }
     }
 
+    var playerURLBase: String {
+        switch self {
+        case .nba: return "https://www.espn.com/nba/player/_/id/"
+        case .nhl: return "https://www.espn.com/nhl/player/_/id/"
+        case .afl: return "https://www.espn.com/australian-football/player/_/id/"
+        case .nfl: return "https://www.espn.com/nfl/player/_/id/"
+        }
+    }
+
     var kayoURL: URL {
         let urls: [Sport: String] = [
             .nba: "https://kayosports.com.au/sport/nba",
@@ -101,6 +110,7 @@ struct Player: Identifiable, Sendable {
     let statValues: [String]    // corresponding values
     let sortKey: Double         // primary sort stat (e.g. PTS for NBA, Disposals for AFL)
     let fantasyPoints: Double   // AFL Fantasy pts (0 for other sports)
+    let athleteURL: URL?        // ESPN player page
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
